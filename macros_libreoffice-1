@@ -1,0 +1,21 @@
+# Макрос для Libreoffice який підлаштовує зовнішній вигляд завантаженого файлу
+# а саме: 
+# 1. Перемикає вигляд документа в Web
+# 2. Встановлює масштаб в 115%
+
+Sub SetWebLayout
+    Dim oDoc As Object
+    Dim oController As Object
+    Dim oViewSettings As Object
+    
+    oDoc = ThisComponent
+    oController = oDoc.CurrentController
+    
+    Dim oDispatcher As Object
+    oDispatcher = createUnoService("com.sun.star.frame.DispatchHelper")
+    oDispatcher.executeDispatch(oController.Frame, ".uno:BrowseView", "", 0, Array())
+    
+    oViewSettings = oController.ViewSettings
+    oViewSettings.ZoomType = 0
+    oViewSettings.ZoomValue = 115
+End Sub
