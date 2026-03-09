@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# Спросим пароль один раз
+read -s -p "Введите пароль: " PASS
+echo ""
+
+# Папка для результатов
+OUTDIR="./protected"
+mkdir -p "$OUTDIR"
+
+# Рекурсивно ищем все файлы
+echo "📦 Архивация файлов..."
+find . -type f | while read -r f; do
+    # Путь относительно текущей папки
+    relpath="${f#./}"
+    # Создаём подкаталог в OUTDIR, чтобы сохранить структуру
+    outdir="$OUTDIR/$(dirname "$relpath")"
+    mkdir -p "$outdir"
+    # Имя файла
+    base=$(basename "$f")
+    echo "  ZIP → $f"
+    # Создаём zip с паролем, сохраняя структуру
+    zip -j -e -P "$PASS" "$outdir/$base.zip" "$f" >/dev/null
+done
+
+echo "✅ Готово! Все зашифрованные файлы находятся в папке: $OUTDIR"

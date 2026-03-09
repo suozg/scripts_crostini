@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# Проверяем, существует ли команда gpg
+if ! command -v gpg &> /dev/null
+then
+    echo "Інсталюйте GPG."
+    exit 1
+fi
+
+# Запрашиваем пароль для расшифровки
+echo -n "Введіть пароль: "
+read -s PASSWORD
+echo
+
+# Используем find для поиска всех .gpg файлов в текущей директории и подкаталогах
+find . -type f -name "*.gpg" | while read -r file
+do
+    echo "Розшифрування файла: $file"    
+    # Создаем временный файл в оперативной памяти а не на диске
+    tmpfile=$(mktemp /dev/shm/tmp.XXXXXX)
+    # Передаем пароль в GPG для расшифровки файла во временный файл
+    if echo "$PASSWORD" | gpg --batch --yes --passphrase-fd 0 --decrypt "$file" > "$tmpfile"; then
+        mv "$tmpfile" "${file%.gpg}"
+        echo "Файл розшифрований: $file"
+        #rm -f "$file"  # Удаляем зашифрованный файл после расшифровки (если нужно)
+    else
+        echo "Помилка розшифрування файла: $file"
+        rm -f "$tmpfile"  # Удаляем временный файл при ошибке
+    fi
+done

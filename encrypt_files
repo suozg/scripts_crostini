@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# Проверка, что указана директория
+if [ -z "$1" ]; then
+  echo "Укажите директорию для шифрования."
+  exit 1
+fi
+
+DIRECTORY="$1"
+
+# Запрос пароля для шифрования
+read -sp "Введите пароль для шифрования: " passphrase
+echo
+
+# Рекурсивное шифрование файлов
+find "$DIRECTORY" -type f ! -name "*.gpg" | while read -r file; do
+  echo "Шифрую файл: $file"
+  echo "$passphrase" | gpg --batch --yes --passphrase-fd 0 -c "$file"
+
+  # Удаление исходного файла, если шифрование успешно
+  if [ $? -eq 0 ]; then
+    rm "$file"
+    echo "Исходный файл удален: $file"
+  else
+    echo "Ошибка при шифровании файла: $file"
+  fi
+done
+
+echo "Шифрование завершено."

@@ -1,0 +1,79 @@
+#!/bin/bash
+sudo mountpoint -q /tmp || sudo mount -t tmpfs -o mode=1777,size=1G tmpfs /tmp
+
+export GDK_BACKEND=x11
+export QT_QPA_PLATFORM=xcb
+
+# Зберігаємо PID (ідентифікатор процесу) Xephyr
+XEPHYR_PID=""
+
+if ! pgrep -f "Xephyr :20" > /dev/null; then
+    Xephyr -br -fullscreen -resizeable :20 &
+    XEPHYR_PID=$!
+else
+    # Якщо Xephyr вже запущений, виходимо, як у вашому оригіналі
+    exit
+fi
+
+while ! xdpyinfo -display :20 > /dev/null 2>&1; do
+    sleep 1
+done
+
+
+# === БЛОК ЗАПУСКУ ===
+# Запускаємо всі фонові процеси з trap-блоком
+
+# Створюємо масив, щоб зберігати PID фонових процесів
+BACKGROUND_PIDS=()
+
+# Функція для вбивства всіх фонових процесів
+kill_background() {
+    echo "Stopping background processes on :20..."
+
+    # 1. Спроба коректно завершити фонові процеси (SIGTERM)
+    for PID in "${BACKGROUND_PIDS[@]}"; do
+        if kill -TERM $PID 2>/dev/null; then # -TERM просить програму завершитися коректно
+            echo "Sent TERM to PID $PID"
+        fi
+    done
+    
+    # Даємо процесам 1 секунду на коректне завершення
+    sleep 1
+
+    # 2. Перевірка та примусове вбивство (SIGKILL), якщо вони ще працюють
+    for PID in "${BACKGROUND_PIDS[@]}"; do
+        if kill -0 $PID 2>/dev/null; then # kill -0 перевіряє, чи PID все ще існує
+            echo "Force killing PID $PID"
+            kill -KILL $PID 2>/dev/null
+        fi
+    done
+
+    # 3. Завершення Xephyr (примусове вбивство, щоб він не чекав)
+    if [ -n "$XEPHYR_PID" ]; then
+        echo "Killing Xephyr (PID $XEPHYR_PID)..."
+        # Використовуємо -KILL, щоб гарантувати миттєве завершення Xephyr
+        kill -KILL "$XEPHYR_PID" 2>/dev/null
+    fi
+
+    pkill -f mpv || true
+
+}
+
+# Встановлюємо пастку: при будь-якому виході зі скрипта (EXIT) викликати kill_background
+trap kill_background EXIT
+
+# Запускаємо демон буфера обміну на вкладеному дисплеї та зберігаємо його PID
+DISPLAY=:20 clipmenud &
+BACKGROUND_PIDS+=($!)
+
+# Запускаємо статус-бар dwm та зберігаємо його PID
+DISPLAY=:20 dwmblocks &
+BACKGROUND_PIDS+=($!)
+
+# === БЛОК DWM ===
+# Запускаємо сам dwm (ця команда блокує виконання скрипта)
+echo "Starting DWM on :20..."
+DISPLAY=:20 dwm
+
+# Якщо dwm завершиться, виконання автоматично перейде до trap EXIT,
+# який запустить kill_background() і все зупинить.

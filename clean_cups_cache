@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# Проверка, запущен ли скрипт с sudo
+if [[ $EUID -ne 0 ]]; then
+   echo "Пожалуйста, запустите этот скрипт с sudo или от имени root."
+   exit 1
+fi
+
+# Остановить службу CUPS
+systemctl stop cups
+
+# Удалить кеш и временные файлы CUPS
+rm -rf /var/spool/cups/*
+rm -rf /var/cache/cups/*
+
+# Запустить службу CUPS снова
+systemctl start cups
+
+# Очистить очередь печати
+cancel -a
+
+echo "Очередь печати и кеш CUPS очищены."
+
+

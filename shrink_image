@@ -1,0 +1,15 @@
+#!/bin/bash
+
+width=${1:-1280}
+quality=${2:-80}
+
+outdir="compressed"
+mkdir -p "$outdir"
+
+# JPG/JPEG
+find . -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" \) -print0 | xargs -0 -n 1 -P 2 mogrify -path "$outdir" -resize "${width}x" -quality "$quality"
+
+# PNG
+find . -maxdepth 1 -type f -iname "*.png" -print0 | xargs -0 -n 1 -P 2 mogrify -path "$outdir" -resize "${width}x"
+
+echo "Все сжатые файлы в $outdir/"

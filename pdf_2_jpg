@@ -1,0 +1,44 @@
+#!/bin/bash
+shopt -s nocaseglob
+PDF_DIR="./"
+files=("$PDF_DIR"*.pdf)
+total_files=${#files[@]}
+current=0
+
+echo "Починаємо обробку $total_files файлів..."
+
+for pdf_file in "${files[@]}"; do
+    ((current++))
+    base_name=$(basename "$pdf_file" .pdf)
+    percent=$(( current * 100 / total_files ))
+    bar_size=$(( percent / 5 ))
+    bar=$(printf "%${bar_size}s" | tr ' ' '#')
+    spaces=$(printf "%$(( 20 - bar_size ))s")
+    printf "\rПрогрес: [%-20s] %d%% (%d/%d) %s" "$bar" "$percent" "$current" "$total_files" "$base_name"
+    pdftoppm "$pdf_file" -jpeg "$base_name"
+done
+
+
+PROCESS_SCRIPT="$HOME/.local/bin/image_process.sh"
+
+# Перевірка наявності файлу та прав на виконання
+if [ -f "$PROCESS_SCRIPT" ]; then
+    # Запит до користувача
+    echo 
+    read -p "Бажаєте розпочати обробку зображень у папці output? (y/n) " -n 1 -r
+    echo    # Додає новий рядок після введення
+    
+    if [[ $REPLY =~ ^[YyНн]$ ]]; then
+        echo "Починаємо обробку зображень..."
+        bash "$PROCESS_SCRIPT"
+        echo "Готово!"
+    else
+        echo "Обробку скасовано користувачем."
+        exit 0
+    fi
+else
+    echo "Помилка: скрипт $PROCESS_SCRIPT не знайдено!"
+    exit 1
+fi
+
+echo -e "\nГотово!"
