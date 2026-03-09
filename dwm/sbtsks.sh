@@ -2,7 +2,7 @@
 
 # --- Налаштування ---
 TMP_FILE="/tmp/ukraine_holidays.ics"
-EVENTS_BIN="/home/alex320388/.local/bin/dwm/my_tasks"
+EVENTS_BIN="$HOME/.local/bin/dwm/my_tasks"
 TODAY=$(date +%Y%m%d)
 FLAG="/tmp/holiday_notified_$TODAY"
 
