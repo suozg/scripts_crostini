@@ -45,4 +45,4 @@ echo
 
 echo "=== Проверка завершена ==="
 echo "# Убираем флаг исполнения (только файлы, не каталоги)"
-echo "find /home/alex320388/WORK/ -type f -exec chmod -x {} \;"
+echo "find /home/user/WORK/ -type f -exec chmod -x {} \;"
