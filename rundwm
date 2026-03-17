@@ -8,7 +8,7 @@ export QT_QPA_PLATFORM=xcb
 XEPHYR_PID=""
 
 if ! pgrep -f "Xephyr :20" > /dev/null; then
-    Xephyr -br -fullscreen -resizeable :20 &
+    Xephyr -br -ac -fullscreen :20 &
     XEPHYR_PID=$!
 else
     # Якщо Xephyr вже запущений, виходимо, як у вашому оригіналі
@@ -30,6 +30,9 @@ BACKGROUND_PIDS=()
 kill_background() {
     echo "Stopping background processes on :20..."
 
+    pkill mpvdwm || true
+    pkill -f mpv || true
+
     # 1. Спроба коректно завершити фонові процеси (SIGTERM)
     for PID in "${BACKGROUND_PIDS[@]}"; do
         if kill -TERM $PID 2>/dev/null; then # -TERM просить програму завершитися коректно
@@ -38,7 +41,7 @@ kill_background() {
     done
     
     # Даємо процесам 1 секунду на коректне завершення
-    sleep 1
+    sleep 3
 
     # 2. Перевірка та примусове вбивство (SIGKILL), якщо вони ще працюють
     for PID in "${BACKGROUND_PIDS[@]}"; do
@@ -54,20 +57,25 @@ kill_background() {
         # Використовуємо -KILL, щоб гарантувати миттєве завершення Xephyr
         kill -KILL "$XEPHYR_PID" 2>/dev/null
     fi
-
-    pkill -f mpv || true
-
+    
 }
 
 # Встановлюємо пастку: при будь-якому виході зі скрипта (EXIT) викликати kill_background
 trap kill_background EXIT
 
+# Запускаємо демон радіо (наш новий C-код)
+# Він не прив'язаний до конкретного DISPLAY (бо працює з файлами та сокетами),
+# але ми запускаємо його тут для спільного циклу життя з DWM.
+echo "📻 Radio (Alt+R)" > /tmp/dwm-radio-status
+mpvdwm &
+BACKGROUND_PIDS+=($!)
+
 # Запускаємо демон буфера обміну на вкладеному дисплеї та зберігаємо його PID
-DISPLAY=:20 clipmenud &
+DISPLAY=:20 clipmenud >/dev/null 2>&1 &
 BACKGROUND_PIDS+=($!)
 
 # Запускаємо статус-бар dwm та зберігаємо його PID
-DISPLAY=:20 dwmblocks &
+DISPLAY=:20 dwmblocks >/dev/null 2>&1 &
 BACKGROUND_PIDS+=($!)
 
 # === БЛОК DWM ===
