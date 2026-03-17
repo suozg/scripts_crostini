@@ -1,6 +1,6 @@
 ## Демон для DWM та MPV який виводить в dwmblocks назву композиції, що програється
 
-!(radio dwm)[radio/image.png]
+![radio dwm](image.png)
 
 * Компіляція
 ---
