@@ -9,6 +9,11 @@ Sub SetWebLayout
     Dim oViewSettings As Object
     
     oDoc = ThisComponent
+
+    If Not oDoc.supportsService("com.sun.star.text.TextDocument") Then
+        Exit Sub
+    End If
+
     oController = oDoc.CurrentController
     
     Dim oDispatcher As Object
