@@ -1,21 +1,25 @@
 #!/bin/bash
 
-LAYOUTS="us,ua"
+# 1. Отримуємо вивід setxkbmap у змінну один раз
+output=$(setxkbmap -query)
+
+# 2. Використовуємо вбудовану заміну рядків Bash для пошуку розкладки
+# Шукаємо частину після "layout:"
+current="${output##*layout: }"
+# Відрізаємо все, що йде після назви розкладки (наступні рядки)
+current="${current%%$'\n'*}"
+# Прибираємо зайві пробіли, якщо вони є
+current="${current//[[:space:]]/}"
+
 OPTIONS="lv3:ralt_switch"
 
 if [ "$1" = "status" ]; then
-    current=$(setxkbmap -query | awk '/layout/{print $2}')
-    if [ "$current" = "us" ]; then
-        echo "🗽US"
-    else
-        echo "🌻UA"
-    fi
-    exit
+    [[ "$current" == "us" ]] && echo "🗽US" || echo "🌻UA"
+    exit 0
 fi
 
-current=$(setxkbmap -query | awk '/layout/{print $2}')
-
-if [ "$current" = "us" ]; then
+# 3. Логіка перемикання
+if [[ "$current" == "us" ]]; then
     setxkbmap -layout ua -option "$OPTIONS"
 else
     setxkbmap -layout us -option "$OPTIONS"
