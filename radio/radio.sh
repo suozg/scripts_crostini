@@ -63,6 +63,7 @@ main() {
 
             pkill -f "dm-radio-mpv" || true
             mpv --no-video --quiet --input-ipc-server=/tmp/mpv-radio-socket --input-terminal=no --title="dm-radio-mpv" "$url" &
+            break
             ;;
         "$ICON_ADD Додати [2]")
             # Ввод названия станции
