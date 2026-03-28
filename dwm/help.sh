@@ -7,8 +7,10 @@ ICON_PAGE="📄"
 ICON_EDIT="✏"
 ICON_COLOR="🎨"
 ICON_MENU="📚"
+ICON_NEW="➕"
 
-choices=""
+choices="$ICON_EDIT EDIT\n"
+
 declare -A map
 
 while IFS= read -r file; do
@@ -22,7 +24,8 @@ while IFS= read -r file; do
     map["$label"]="$name"
 done < <(find "$WIKI_PATH" -maxdepth 1 -type f -name "*.md" | sort)
 
-choices+="$ICON_EDIT EDIT\n"
+choices+="$ICON_NEW NEW FILE\n"
+choices+="----\n"
 choices+="$ICON_COLOR COLOR\n"
 
 selection=$(printf "%b" "$choices" | dmenu -i -l 10 -p "$ICON_MENU Довідка та інструменти:" -fn "monospace:size=12")
@@ -30,12 +33,29 @@ selection=$(printf "%b" "$choices" | dmenu -i -l 10 -p "$ICON_MENU Довідк�
 
 if [[ "$selection" == "$ICON_EDIT EDIT" ]]; then
     page="$WIKI_PATH/index.md"
-    ~/awards/scripts/st -t "Редагування Wiki" -e nvim "$page"
+    $HOME/awards/scripts/st -t "Редагування Wiki" -e nvim "$page"
 
 elif [[ "$selection" == "$ICON_COLOR COLOR" ]]; then
-    /home/alex320388/.local/bin/dwm/selcolor_with_dmenuklik.sh
+    $HOME/.local/bin/dwm/selcolor_with_dmenuklik.sh
+
+elif [[ "$selection" == "$ICON_NEW NEW" ]]; then
+    name=$(printf "" | dmenu -p "Нова сторінка:" -fn "monospace:size=12")
+    [[ -z "$name" ]] && exit 0
+
+    # очистка имени (убираем пробелы по краям)
+    name=$(echo "$name" | xargs)
+
+    page="$WIKI_PATH/$name.md"
+
+    if [[ -e "$page" ]]; then
+        printf "Файл вже існує" | dmenu -p "Помилка:"
+        exit 1
+    fi
+
+    touch "$page"
+    $HOME/awards/scripts/st -t "Нова сторінка:$name" -e nvim "$page"
 
 else
     page="$WIKI_PATH/${map[$selection]}.md"
-    ~/awards/scripts/st -t "Довідка Wiki:$selection" -e bash -c "glow -p \"$page\""
+    $HOME/awards/scripts/st -t "Довідка Wiki:$selection" -e bash -c "glow -p \"$page\""
 fi
