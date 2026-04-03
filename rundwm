@@ -32,6 +32,7 @@ kill_background() {
 
     pkill mpvdwm || true
     pkill -f mpv || true
+    pkill -f dunst || true
 
     # 1. Спроба коректно завершити фонові процеси (SIGTERM)
     for PID in "${BACKGROUND_PIDS[@]}"; do
@@ -62,6 +63,9 @@ kill_background() {
 
 # Встановлюємо пастку: при будь-якому виході зі скрипта (EXIT) викликати kill_background
 trap kill_background EXIT
+
+DISPLAY=:20 dunst &
+BACKGROUND_PIDS+=($!)
 
 # Запускаємо демон радіо (наш новий C-код)
 # Він не прив'язаний до конкретного DISPLAY (бо працює з файлами та сокетами),
