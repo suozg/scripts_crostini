@@ -1,53 +1,61 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-OPTIONS="lv3:ralt_switch"
-current=$(setxkbmap -query | awk '/layout/{print $2}')
+DIARY_DIR="$HOME/awards/vimwiki/diary"
+INDEX_FILE="$DIARY_DIR/diary.md"
+mkdir -p "$DIARY_DIR"
 
-# 1. Якщо початкова розкладка була US, встановлюємо пастку (trap)
-#    для її відновлення при будь-якому виході зі скрипта (EXIT).
-if [ "$current" = "us" ]; then
-    setxkbmap -layout ua -option "$OPTIONS"
-    trap 'setxkbmap -layout us' EXIT
+# 1. Отримуємо дату
+date_input=$(printf "" | dmenu -p "Дата (YYYY-MM-DD) або Enter:" -fn "monospace:size=12")
+[ -z "$date_input" ] && date_input=$(date +%Y-%m-%d)
+
+FILE="$DIARY_DIR/$date_input.md"
+NEW_FILE=false
+
+# 2. Якщо файлу дня ще немає — створюємо його
+if [ ! -f "$FILE" ]; then
+    echo "# $date_input" > "$FILE"
+    NEW_FILE=true
 fi
 
-FILE="$HOME/awards/events.txt"
-mkdir -p "$(dirname "$FILE")"
-touch "$FILE"
+# 3. Отримуємо дані завдання
+time_input=$(printf "" | dmenu -p "Час (HH:MM):" -fn "monospace:size=12")
+[ -z "$time_input" ] && exit 0
+text_input=$(printf "" | dmenu -p "Задача:" -fn "monospace:size=12")
+[ -z "$text_input" ] && exit 0
 
-use_dmenu() { command -v dmenu >/dev/null 2>&1; }
+# 4. Записуємо задачу
+echo "- $time_input $text_input" >> "$FILE"
 
-prompt() {
-   local prompt="$1"
-   printf "" | dmenu -p "$prompt" -fn "monospace:size=12"
-}
+# 5. ОНОВЛЕННЯ diary.md (Індексу)
+if [ "$NEW_FILE" = true ] || [ ! -f "$INDEX_FILE" ]; then
+    [ -f "$INDEX_FILE" ] || echo "# Diary" > "$INDEX_FILE"
 
-# --- Збір та Валідація Дати ---
-date=$(prompt "Дата (YYYY-MM-DD):" || exit 0)
-[ -z "$date" ] && exit 0
+    # 1. Тимчасовий файл для чистого списку
+    tmp_index=$(mktemp)
+    
+    # 2. Записуємо "шапку"
+    echo "# Diary" > "$tmp_index"
+    echo "" >> "$tmp_index"
+    
+    # 3. Додаємо нову дату до поточного файлу, щоб вона теж потрапила в обробку
+    echo "$date_input" >> "$INDEX_FILE"
 
-if ! [[ $date =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
-   notify-send -u critical "Помилка в форматі дати:" "($date) проти (YYYY-MM-DD)"
-   exit 1
+    # 4. ОЧИЩЕННЯ ТА СОРТУВАННЯ:
+    # - Витягуємо ТІЛЬКИ цифри дати (ігноруємо дужки, зірочки, сміття)
+    # - Сортуємо у зворотному порядку, видаляємо дублікати
+    # - Формуємо чистий рядок: * [[YYYY-MM-DD]]
+    grep -oE "[0-9]{4}-[0-9]{2}-[0-9]{2}" "$INDEX_FILE" | \
+    sort -ur | \
+    while read -r d; do
+        echo "* [[$d]]" >> "$tmp_index"
+    done
+
+    # 5. Замінюємо старий "брудний" файл новим і чистим
+    mv "$tmp_index" "$INDEX_FILE"
 fi
 
-# --- Збір та Валідація Часу ---
-time=$(prompt "Час (HH:MM):")
-[ -z "$time" ] && exit 0
+# 6. Фіналізація
+pkill -RTMIN+10 dwmblocks || true
+dunstify -u low "Vimwiki" "Запис додано в $date_input та оновлено індекс."
 
-if ! [[ $time =~ ^[0-9]{2}:[0-9]{2}$ ]]; then
-   notify-send -u critical "Помилка в форматі часу:" "($time) проти (HH:MM)"
-   exit 1
-fi
-
-# --- Збір Завдання ---
-text=$(prompt "Задача:")
-[ -z "$text" ] && exit 0
-
-# --- Запис та Очищення ---
-echo "$date $time $text" >> "$FILE"
-sed -i '/^$/d' "$FILE"
-
-# --- Завершення ---
-pkill -RTMIN+10 dwmblocks 2>/dev/null || true
-notify-send "Нова задача:" "$date $time $text"
