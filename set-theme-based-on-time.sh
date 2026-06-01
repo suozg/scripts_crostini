@@ -244,3 +244,20 @@ if [[ -n "$DWM_PID" ]]; then
     kill -HUP "$DWM_PID"
 fi
 
+
+# =============== BAT / BATCAT ============
+BAT_CONFIG_DIR="$HOME/.config/bat"
+BAT_CONFIG="$BAT_CONFIG_DIR/config"
+
+# Створюємо директорію, якщо вона ще не існує
+mkdir -p "$BAT_CONFIG_DIR"
+
+if [[ "$NEW_MODE" == "dark" ]]; then
+    # Тема для темного режиму (наприклад, Monokai Extended або Nord)
+    echo '--theme="Monokai Extended"' > "$BAT_CONFIG"
+else
+    # Тема для світлого режиму (наприклад, GitHub або OneHalfLight)
+    echo '--theme="GitHub"' > "$BAT_CONFIG"
+fi
+
+
