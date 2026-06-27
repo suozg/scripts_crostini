@@ -1,16 +1,18 @@
 #!/bin/bash
+set -euo pipefail
 
-# 1. Показуємо dmenu з інструкцією
-# Ми використовуємо "echo", щоб dmenu відкрилося і чекало, поки ви натиснете Enter або просто бачили текст
-echo "Клікніть на екрані для отримання кольору..." | dmenu -p "Піпетка:" -fn "monospace:size=12" &
-DMENU_PID=$!
+STATUS=/tmp/pipette.status
 
-# 2. Запускаємо піпетку
-COLOR=$(python3 ~/.local/bin/dwm/select_color.py)
+cleanup() {
+    rm -f "$STATUS"
+    pkill -RTMIN+14 dwmblocks 2>/dev/null || true
+}
 
-# 3. Закриваємо dmenu (якщо воно ще висить) і показуємо результат
-kill $DMENU_PID 2>/dev/null
-if [ ! -z "$COLOR" ]; then
-   printf "%s" "$COLOR" | xclip -selection clipboard 
-   echo "$COLOR" | dmenu -p "Обраний колір [скопійовано]:" -nb "$COLOR" -nf "#005577" -fn "monospace:size=12"
-fi
+echo "🎨 Піпетка" > "$STATUS"
+pkill -RTMIN+14 dwmblocks 2>/dev/null || true
+
+trap cleanup EXIT
+
+COLOR=$(maim -s -u | convert - -format '%[hex:p{0,0}]' info:)
+
+[ -n "${COLOR:-}" ] && printf "%s" "$COLOR" | xclip -selection clipboard
