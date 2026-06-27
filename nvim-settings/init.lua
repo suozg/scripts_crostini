@@ -9,6 +9,7 @@ vim.opt.runtimepath:append(vim.fn.expand("~/.local/share/nvim/site"))
 vim.g.loaded_ruby_provider = 0
 vim.g.loaded_perl_provider = 0
 vim.g.loaded_node_provider = 0
+vim.g.mapleader = " "
 
 -- =============================================================================
 -- 1. ПЛАГІНИ (Vim-Plug)
@@ -31,8 +32,20 @@ call plug#begin('~/.local/share/nvim/plugged')
     Plug 'nvim-orgmode/orgmode'
     Plug 'dhruvasagar/vim-table-mode'
     Plug 'nvim-treesitter/nvim-treesitter', { 'do': ':TSUpdate' }
+    Plug 'williamboman/mason.nvim'
+    Plug 'williamboman/mason-lspconfig.nvim'    
+    Plug 'neovim/nvim-lspconfig'
     Plug 'godlygeek/tabular'
     Plug 'lukas-reineke/indent-blankline.nvim', { 'tag': 'v2.20.8' }
+    Plug 'hrsh7th/nvim-cmp'
+    Plug 'hrsh7th/cmp-buffer'
+    Plug 'hrsh7th/cmp-path'
+    Plug 'hrsh7th/cmp-nvim-lsp'
+    Plug 'L3MON4D3/LuaSnip'
+    Plug 'saadparwaiz1/cmp_luasnip'
+    Plug 'nvim-neo-tree/neo-tree.nvim'
+    Plug 'nvim-lua/plenary.nvim'
+    Plug 'MunifTanjim/nui.nvim'
 call plug#end()
 ]])
 
@@ -44,6 +57,7 @@ opt.number = true
 opt.tabstop = 4
 opt.shiftwidth = 4
 opt.expandtab = true
+opt.incsearch = true
 opt.ignorecase = true
 opt.smartcase = true
 opt.termguicolors = true
@@ -101,6 +115,56 @@ vim.g.indent_blankline_char = '│'
 vim.g.indent_blankline_show_trailing_blankline_indent = false
 vim.g.indent_blankline_filetype_exclude = { 'help', 'terminal', 'dashboard', 'fzf' }
 
+
+-- =============================================================================
+-- БЛОК LSP & CMP 
+-- =============================================================================
+require("mason").setup()
+
+local servers = { "lua_ls", "pyright", "ts_ls", "bashls" }
+
+require("mason-lspconfig").setup({
+    ensure_installed = servers
+})
+
+-- Налаштування nvim-cmp
+local cmp = require('cmp')
+local luasnip = require('luasnip')
+
+cmp.setup({
+  snippet = {
+    expand = function(args)
+      luasnip.lsp_expand(args.body)
+    end,
+  },
+  mapping = cmp.mapping.preset.insert({
+    ['<Tab>'] = cmp.mapping.select_next_item(),
+    ['<S-Tab>'] = cmp.mapping.select_prev_item(),
+    ['<CR>'] = cmp.mapping.confirm({ select = true }),
+  }),
+  sources = {
+    { name = 'nvim_lsp' },
+    { name = 'buffer',
+      option = {
+        keyword_pattern = [[[^%s]\+]]
+      }
+    },
+    { name = 'path' },
+  }
+})
+
+-- Отримуємо capabilities від cmp
+local capabilities = require('cmp_nvim_lsp').default_capabilities()
+
+-- Сучасна ініціалізація серверів згідно з вимогами lspconfig-nvim-0.11
+for _, server in ipairs(servers) do
+    vim.lsp.config(server, {
+        capabilities = capabilities,
+    })
+    vim.lsp.enable(server)
+end
+
+
 -- =============================================================================
 -- 4. ТЕМА ТА ВІЗУАЛІЗАЦІЯ
 -- =============================================================================
@@ -143,6 +207,15 @@ else
     set_theme("dark")
 end
 
+-- смена цвета статусбар при изменении режима
+local function set_statusline_mode_colors()
+    vim.api.nvim_set_hl(0, "StatusLineNormal", { bg = "#3c3836", fg = "#ebdbb2" })
+    vim.api.nvim_set_hl(0, "StatusLineInsert", { bg = "#2e7d32", fg = "#ffffff" }) -- зелёный
+end
+
+set_statusline_mode_colors()
+
+
 -- =============================================================================
 -- 5. KEYMAPS
 -- =============================================================================
@@ -163,6 +236,10 @@ map('n','<leader>fb',':Buffers<CR>')
 map('n','<leader>oa',':OrgAgenda<CR>')
 map('n','<leader>oc',':OrgCapture<CR>')
 map('n','<leader>ot',':OrgTodoToggle<CR>')
+
+-- запуск файлового менеджера
+vim.keymap.set("n", "<leader>e", ":Neotree toggle<CR>", { silent = true })
+
 
 -- =============================================================================
 -- 6. AUTOCMDS
@@ -189,6 +266,20 @@ vim.api.nvim_create_autocmd("BufWritePost", {
         os.execute("pkill -RTMIN+10 dwmblocks")
     end,
 })
+
+-- автокоманди для изменения цвета статусбар
+vim.api.nvim_create_autocmd({ "InsertEnter" }, {
+    callback = function()
+        vim.api.nvim_set_hl(0, "StatusLine", { link = "StatusLineInsert" })
+    end
+})
+
+vim.api.nvim_create_autocmd({ "InsertLeave" }, {
+    callback = function()
+        vim.api.nvim_set_hl(0, "StatusLine", { link = "StatusLineNormal" })
+    end
+})
+
 
 -- =============================================================================
 -- 7.1. РОБОТА З РОЗКЛАДКОЮ ТА СИГНАЛ ДЛЯ DWM
