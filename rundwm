@@ -1,5 +1,21 @@
 #!/bin/bash
-sudo mountpoint -q /tmp || sudo mount -t tmpfs -o mode=1777,size=1G tmpfs /tmp
+
+LOCK="/tmp/rundwm.lock"
+
+if [ -f "$LOCK" ] && kill -0 "$(cat "$LOCK")" 2>/dev/null; then
+    exit 0
+fi
+
+echo $$ > "$LOCK"
+
+sudo mountpoint -q /tmp || \
+sudo mount -t tmpfs -o mode=1777,size=1G tmpfs /tmp
+
+sudo mkdir -p /tmp/.X11-unix
+sudo chown root:root /tmp/.X11-unix
+sudo chmod 1777 /tmp/.X11-unix
+
+touch /tmp/dwm-radio-status
 
 export GDK_BACKEND=x11
 export QT_QPA_PLATFORM=xcb
@@ -8,10 +24,10 @@ export QT_QPA_PLATFORM=xcb
 XEPHYR_PID=""
 
 if ! pgrep -f "Xephyr :20" > /dev/null; then
-    Xephyr -br -ac -fullscreen :20 &
+    Xephyr -br -fullscreen -resizeable :20 &
     XEPHYR_PID=$!
 else
-    # Якщо Xephyr вже запущений, виходимо, як у вашому оригіналі
+    # Якщо Xephyr вже запущений, виходимо
     exit
 fi
 
@@ -19,59 +35,59 @@ while ! xdpyinfo -display :20 > /dev/null 2>&1; do
     sleep 1
 done
 
-
-# === БЛОК ЗАПУСКУ ===
-# Запускаємо всі фонові процеси з trap-блоком
-
-# Створюємо масив, щоб зберігати PID фонових процесів
-BACKGROUND_PIDS=()
+# Функція очищення пам'яті
+cleanup_memory() {
+    sync
+    echo "Cleaning up temporary files..."
+    rm -f /tmp/dwm-radio-status 2>/dev/null
+    find /tmp -maxdepth 1 -user "$(whoami)" -not -name ".X11-unix" -exec rm -rf {} + 2>/dev/null
+    rm -f "$LOCK"
+}
 
 # Функція для вбивства всіх фонових процесів
 kill_background() {
     echo "Stopping background processes on :20..."
 
-    pkill mpvdwm || true
     pkill -f mpv || true
+    pkill -f mpvdwm || true
     pkill -f dunst || true
 
-    # 1. Спроба коректно завершити фонові процеси (SIGTERM)
     for PID in "${BACKGROUND_PIDS[@]}"; do
-        if kill -TERM $PID 2>/dev/null; then # -TERM просить програму завершитися коректно
-            echo "Sent TERM to PID $PID"
-        fi
+        kill -TERM "$PID" 2>/dev/null
     done
-    
-    # Даємо процесам 1 секунду на коректне завершення
-    sleep 3
 
-    # 2. Перевірка та примусове вбивство (SIGKILL), якщо вони ще працюють
+    sleep 2
+
     for PID in "${BACKGROUND_PIDS[@]}"; do
-        if kill -0 $PID 2>/dev/null; then # kill -0 перевіряє, чи PID все ще існує
-            echo "Force killing PID $PID"
-            kill -KILL $PID 2>/dev/null
+        # якщо процесс все ще існує 
+        if kill -0 "$PID" 2>/dev/null; then
+            kill -KILL "$PID" 2>/dev/null
+            echo "!!! killed $PID"
         fi
     done
 
-    # 3. Завершення Xephyr (примусове вбивство, щоб він не чекав)
     if [ -n "$XEPHYR_PID" ]; then
-        echo "Killing Xephyr (PID $XEPHYR_PID)..."
-        # Використовуємо -KILL, щоб гарантувати миттєве завершення Xephyr
-        kill -KILL "$XEPHYR_PID" 2>/dev/null
+        kill -TERM "$XEPHYR_PID" 2>/dev/null
+        wait "$XEPHYR_PID" 2>/dev/null
     fi
-    
+
+    cleanup_memory
 }
+
+# Створюємо масив, щоб зберігати PID фонових процесів
+BACKGROUND_PIDS=()
 
 # Встановлюємо пастку: при будь-якому виході зі скрипта (EXIT) викликати kill_background
 trap kill_background EXIT
 
+# run dunst
 DISPLAY=:20 dunst &
 BACKGROUND_PIDS+=($!)
 
-# Запускаємо демон радіо (наш новий C-код)
-# Він не прив'язаний до конкретного DISPLAY (бо працює з файлами та сокетами),
-# але ми запускаємо його тут для спільного циклу життя з DWM.
+# run mpvd
+mkdir -p /tmp
 echo "📻 Radio (Alt+R)" > /tmp/dwm-radio-status
-mpvdwm &
+DISPLAY=:20 /usr/local/bin/mpvdwm &
 BACKGROUND_PIDS+=($!)
 
 # Запускаємо демон буфера обміну на вкладеному дисплеї та зберігаємо його PID
@@ -82,10 +98,10 @@ BACKGROUND_PIDS+=($!)
 DISPLAY=:20 dwmblocks >/dev/null 2>&1 &
 BACKGROUND_PIDS+=($!)
 
-# === БЛОК DWM ===
 # Запускаємо сам dwm (ця команда блокує виконання скрипта)
+# Якщо dwm завершиться, виконання автоматично перейде до trap EXIT,
+# який запустить kill_background() і все зупинить.
 echo "Starting DWM on :20..."
 DISPLAY=:20 dwm
 
-# Якщо dwm завершиться, виконання автоматично перейде до trap EXIT,
-# який запустить kill_background() і все зупинить.
+
