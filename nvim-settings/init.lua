@@ -11,6 +11,12 @@ vim.g.loaded_perl_provider = 0
 vim.g.loaded_node_provider = 0
 vim.g.mapleader = " "
 
+-- Змушуємо Vim розуміти українські літери як команди в Normal/Visual режимах
+vim.opt.langmap = 'ФИСВУАПРШОЛДЬТЩЗЙКЫЕГМЦЧНЯІЇЄҐ;ABCDEFGHIJKLMNOPQRSTUVWXYZI`":,фисвуапршолдьтщзйкыегмцчняіїєґ;abcdefghijklmnopqrstuvwxyzi`":'
+vim.keymap.set('v', 'ж', ':', { noremap = true })
+vim.keymap.set('n', 'ж', ':', { noremap = true })
+
+
 -- =============================================================================
 -- 1. ПЛАГІНИ (Vim-Plug)
 -- =============================================================================
@@ -231,6 +237,7 @@ map('n','<C-k>',':bp<CR>')
 map('n','<leader>ff',':Files<CR>')
 map('n','<leader>fg',':Rg<CR>')
 map('n','<leader>fb',':Buffers<CR>')
+map("n", "<leader>fr", ":History<CR>")
 
 -- ORG
 map('n','<leader>oa',':OrgAgenda<CR>')
@@ -238,7 +245,7 @@ map('n','<leader>oc',':OrgCapture<CR>')
 map('n','<leader>ot',':OrgTodoToggle<CR>')
 
 -- запуск файлового менеджера
-vim.keymap.set("n", "<leader>e", ":Neotree toggle<CR>", { silent = true })
+map('n', '<leader>e',':Neotree toggle<CR>')
 
 
 -- =============================================================================
@@ -282,37 +289,17 @@ vim.api.nvim_create_autocmd({ "InsertLeave" }, {
 
 
 -- =============================================================================
--- 7.1. РОБОТА З РОЗКЛАДКОЮ ТА СИГНАЛ ДЛЯ DWM
+-- 7.1. РОБОТА З РОЗКЛАДКОЮ ТА СИГНАЛ ДЛЯ DWM (ОПТИМІЗОВАНО ПІД XKB-SWITCH)
 -- =============================================================================
-local OPTIONS = "lv3:ralt_switch"
 local saved_layout = "us"
-
-local function get_layout()
-    -- Використовуємо pcall, щоб уникнути переривань при помилках читання
-    local handle = io.popen("setxkbmap -query 2>/dev/null | grep layout | awk '{print $2}'")
-    if not handle then return "us" end
-    local result = handle:read("*a")
-    handle:close()
-    return result:gsub("%s+", ""):split(',')[1] or "us" 
-end
-
-local function set_layout(layout)
-    vim.fn.system(string.format("setxkbmap -layout %s -option %s 2>/dev/null", layout, OPTIONS))
-    vim.fn.system("pkill -RTMIN+1 dwmblocks 2>/dev/null")
-end
-
-function string:split(sep)
-    local res = {}
-    local pattern = string.format("([^%s]+)", sep)
-    self:gsub(pattern, function(c) res[#res+1] = c end)
-    return res
-end
 
 vim.api.nvim_create_autocmd("InsertEnter", {
     group = augroup,
     callback = function()
         if saved_layout and saved_layout ~= "" then 
-            set_layout(saved_layout) 
+            -- Асинхронно повертаємо мову, яка була в Insert режимі
+            vim.fn.jobstart({ "xkb-switch", "-s", saved_layout })
+            vim.fn.jobstart({ "pkill", "-RTMIN+1", "dwmblocks" })
         end
     end
 })
@@ -320,13 +307,22 @@ vim.api.nvim_create_autocmd("InsertEnter", {
 vim.api.nvim_create_autocmd("InsertLeave", {
     group = augroup,
     callback = function()
-        local current = get_layout()
-        if current ~= "" then saved_layout = current end
+        -- Миттєво зчитуємо поточну розкладку перед виходом
+        local handle = io.popen("xkb-switch -p")
+        if handle then
+            local current = handle:read("*l")
+            handle:close()
+            if current and current ~= "" then saved_layout = current end
+        end
+        
+        -- Якщо була українська, скидаємо на англійську для Normal-команд
         if saved_layout ~= "us" then 
-            set_layout("us") 
+            vim.fn.jobstart({ "xkb-switch", "-s", "us" })
+            vim.fn.jobstart({ "pkill", "-RTMIN+1", "dwmblocks" })
         end
     end
 })
+
 
 -- =============================================================================
 -- 8. STATUSLINE
