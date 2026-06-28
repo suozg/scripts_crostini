@@ -1,7 +1,7 @@
 #!/bin/bash
 
 python_script="$HOME/awards/drs/drs_wx.bin"
-directory="/mnt/chromeos/removable/SD Card/now/STATYSTYKA/NN/db.db"
+directory="/mnt/chromeos/removable/SD Card/now/NN/db.db"
 
 xsetroot -name "    "
 
