@@ -1,0 +1,62 @@
+#!/bin/bash
+
+python_script="$HOME/awards/drs/drs_wx.bin"
+directory="/mnt/chromeos/removable/SD Card/now/STATYSTYKA/NN/db.db"
+
+xsetroot -name "    "
+
+if [ ! -f "$directory" ]; then
+    echo "Файл $directory не знайдено."
+    dunstify -u critical "Файл $directory не знайдено."
+    exit 1
+fi
+
+# Запуск додатка у фоні
+"$python_script" -c "$directory" 2>/dev/null &
+APP_PID=$!
+
+# --- ЕТАП 1: Очікування та введення пароля (Англійська розкладка) ---
+# Чекаємо, поки з'явиться вікно з іменем "Пароль"
+while kill -0 $APP_PID 2>/dev/null; do
+    # Шукаємо вікно саме з назвою "Пароль"
+    PW_WIN=$(xdotool search --pid $APP_PID --name "Пароль" 2>/dev/null)
+    
+    if [ -n "$PW_WIN" ]; then
+        # МИТТЄВО встановлюємо англійську розкладку для пароля через xkb-switch
+        xkb-switch -s us
+        xdotool windowactivate $PW_WIN
+        pkill -RTMIN+1 dwmblocks
+        
+        # Чекаємо, поки вікно "Пароль" зникне (користувач ввів пароль і натиснув Enter)
+        while [ -n "$(xdotool search --pid $APP_PID --name "Пароль" 2>/dev/null)" ]; do
+            sleep 0.3
+        done
+        # Виходимо з циклу очікування пароля
+        break
+    fi
+    sleep 0.2
+done
+
+# --- ЕТАП 2: Основна робота (Українська розкладка) ---
+WAS_FOCUSED=0
+while kill -0 $APP_PID 2>/dev/null; do
+    # Отримуємо ID активного вікна
+    ACTIVE_WIN=$(xprop -root _NET_ACTIVE_WINDOW | awk -F' ' '{print $5}')
+    ACTIVE_DEC=$((ACTIVE_WIN))
+
+    # Шукаємо ID основного вікна програми
+    WIN_ID=$(xdotool search --pid $APP_PID --class Drs_wx | head -n1)
+
+    if [ -n "$WIN_ID" ] && [ "$ACTIVE_DEC" -eq "$WIN_ID" ]; then
+        if [ "$WAS_FOCUSED" -eq 0 ]; then
+            # МИТТЄВО вмикаємо українську розкладку через xkb-switch (опція lv3 зберігається сама)
+            xkb-switch -s ua
+            pkill -RTMIN+1 dwmblocks
+            WAS_FOCUSED=1
+        fi
+    else
+        WAS_FOCUSED=0
+    fi
+
+    sleep 0.2
+done
