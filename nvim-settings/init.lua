@@ -49,9 +49,6 @@ call plug#begin('~/.local/share/nvim/plugged')
     Plug 'hrsh7th/cmp-nvim-lsp'
     Plug 'L3MON4D3/LuaSnip'
     Plug 'saadparwaiz1/cmp_luasnip'
-    Plug 'nvim-neo-tree/neo-tree.nvim'
-    Plug 'nvim-lua/plenary.nvim'
-    Plug 'MunifTanjim/nui.nvim'
 call plug#end()
 ]])
 
@@ -244,8 +241,32 @@ map('n','<leader>oa',':OrgAgenda<CR>')
 map('n','<leader>oc',':OrgCapture<CR>')
 map('n','<leader>ot',':OrgTodoToggle<CR>')
 
--- запуск файлового менеджера
-map('n', '<leader>e',':Neotree toggle<CR>')
+
+-- файловий менеджер lf 
+-- <leader>e → открыть lf (split снизу)
+-- Ctrl+k → вверх в редактор
+-- Ctrl+j → обратно в lf
+
+local lf_win = nil
+-- запуск
+map('n', '<leader>e', function()
+    vim.cmd("botright split")
+    vim.cmd("terminal lf")
+    vim.cmd("startinsert")
+    lf_win = vim.api.nvim_get_current_win()
+end)
+-- переход из lf
+map('t', '<C-k>', function()
+    vim.cmd([[stopinsert]])
+    vim.cmd([[wincmd k]])
+end)
+-- возврат в lf
+map('n', '<C-j>', function()
+    if lf_win and vim.api.nvim_win_is_valid(lf_win) then
+        vim.api.nvim_set_current_win(lf_win)
+        vim.cmd("startinsert")
+    end
+end)
 
 
 -- =============================================================================
