@@ -16,7 +16,7 @@ setxkbmap -layout "us,ua" -option "lv3:ralt_switch"
 xset r rate 250 40
 
 # Встановлення теми
-/home/alex320388/.local/bin/set-theme-based-on-time.sh dark  # dark OR start 
+$HOME/.local/bin/set-theme-based-on-time.sh dark  # dark OR start 
 
 # Композитний менеджер
 picom &
@@ -27,10 +27,8 @@ picom &
 # internet trafik
 #st -n nethogs -e sudo nethogs -a &
 
-# Демон для циклічного запуску перерви (кожні 60 хвилин роботи)
-(
-    while true; do
-        sleep 3600
-        /home/alex320388/.local/bin/dwm/pererva.sh
-    done
-) &
+# Перевіряємо, чи скрипт pererva.sh уже запущений, і вбиваємо стару копію перед новим стартом
+pkill -f "pererva.sh"
+
+# Запускаємо скрипт перерви у фоні
+$HOME/.local/bin/dwm/pererva.sh &
