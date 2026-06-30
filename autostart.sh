@@ -16,7 +16,7 @@ setxkbmap -layout "us,ua" -option "lv3:ralt_switch"
 xset r rate 250 40
 
 # Встановлення теми
-/home/alex320388/.local/bin/set-theme-based-on-time.sh dark  # dark OR start 
+$HOME/.local/bin/set-theme-based-on-time.sh dark  # dark OR start 
 # Композитний менеджер
 picom &
 
