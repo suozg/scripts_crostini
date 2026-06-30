@@ -96,6 +96,7 @@ map zj zoxide_jump
 map яо zoxide_jump
 
 cmd zoxide_remove ${{
+    export FZF_DEFAULT_OPTS="--layout=reverse --border=rounded --margin=5%,10% --height=80% --info=inline"
     target="$(zoxide query -l | sed 's/^ *[0-9]* *//' | fzf --prompt='Прибрати з zoxide > ')"
     if [ -n "$target" ]; then
         zoxide remove "$target"
@@ -251,22 +252,28 @@ cmd arch_repack %{{
 map xr arch_repack     # Перепакувати в інший формат
 map чк arch_repack
 
+
 # =====================
 # FZF JUMP
 # =====================
 cmd fzf_dirs ${{
-    fd --type d --hidden --exclude .git . | fzf --prompt="🔍 Пошук каталогу > " --header="--------------------" | while read -r res; do
+    export FZF_DEFAULT_OPTS="--layout=reverse --border=rounded --margin=5%,10% --height=80% --info=inline"
+    fd --type d --hidden --exclude .git . | fzf --prompt="🔍 Пошук каталогу > " | while read -r res; do
         [ -n "$res" ] && lf -remote "send $id cd \"$res\""
     done
 }}
+map , fzf_dirs
 map ? fzf_dirs
 
 cmd fzf_files ${{
-    fd --type f --hidden --exclude .git . | fzf --prompt="📄 Пошук файлів > " --header="--------------------" | while read -r res; do
+    export FZF_DEFAULT_OPTS="--layout=reverse --border=rounded --margin=5%,10% --height=80% --info=inline"
+    fd --type f --hidden --exclude .git . | fzf --prompt="📄 Пошук файлів > " | while read -r res; do
         [ -n "$res" ] && lf -remote "send $id select \"$res\""
     done
 }}
+map . fzf_files
 map / fzf_files
+
 
 ## =====================
 # Функція створення документа з шаблонів LibreOffice
@@ -279,6 +286,7 @@ cmd create_from_template ${{
         exit 1
     fi
     
+    export FZF_DEFAULT_OPTS="--layout=reverse --border=rounded --margin=5%,10% --height=80% --info=inline"
     TEMPLATE=$(find "$TPL_DIR" -maxdepth 1 -type f \( -name "*.ott" -o -name "*.ots" -o -name "*.otp" \) -printf "%f\n" | fzf --header="Виберіть шаблон")
 
     [ -z "$TEMPLATE" ] && exit 0
@@ -347,6 +355,68 @@ cmd conv_img_700 ${{
 }}
 map C7 conv_img_700
 map С7 conv_img_700
+
+
+# =====================
+# конвертація docx в pdf
+# =====================
+cmd convert_to_pdf ${{
+    # Отримуємо назву файлу та його розширення (переводимо в нижній регістр для надійності)
+    filename=$(basename "$f")
+    extension="${filename##*.}"
+    ext_lower=$(echo "$extension" | tr '[:upper:]' '[:lower:]')
+    
+    case "$ext_lower" in
+        docx|doc|odt)
+            echo "Конвертація $filename у PDF..."
+            # Запуск LibreOffice у фоновому режимі
+            libreoffice --headless --convert-to pdf "$f" &
+            ;;
+        *)
+            echo "Помилка: цей формат ($extension) не підтримується для конвертації!"
+            ;;
+    esac
+}}
+
+cmd convert_all_to_pdf ${{
+    echo "Початок конвертації всіх документів у папці..."
+    
+    # Лічильник конвертованих файлів
+    count=0
+    
+    # Цикл по всіх файлах у поточній директорії
+    for file in *; do
+        # Перевіряємо, чи це дійсно файл, а не папка
+        if [ -f "$file" ]; then
+            # Отримуємо розширення в нижньому регістрі
+            ext="${file##*.}"
+            ext_lower=$(echo "$ext" | tr '[:upper:]' '[:lower:]')
+            
+            case "$ext_lower" in
+                docx|doc|odt)
+                    echo "Конвертується: $file"
+                    # Запускаємо LibreOffice (без знаку &, щоб файли оброблялися по черзі і не перевантажували процесор)
+                    libreoffice --headless --convert-to pdf "$file"
+                    count=$((count + 1))
+                    ;;
+            esac
+        fi
+    done
+    
+    if [ "$count" -gt 0 ]; then
+        echo "Готово! Успішно конвертовано файлів: $count"
+    else
+        echo "У цій папці не знайдено файлів docx, doc або odt."
+    fi
+}}
+
+map CQ convert_all_to_pdf
+map СЙ convert_all_to_pdf
+
+map Cq convert_to_pdf
+map Сй convert_to_pdf
+
+
 
 # =====================
 # RENAME
@@ -534,8 +604,10 @@ cmd trash_restore ${{
             printf "%s | %s | %s\n" "$id" "$name" "$path"
         done
     )
-
+    
+    export FZF_DEFAULT_OPTS="--layout=reverse --border=rounded --margin=5%,10% --height=80% --info=inline"
     sel="$(printf "%s\n" "$list" | fzf -m --prompt='Відновити файл > ')"
+    
     [ -z "$sel" ] && exit
 
     printf "%s\n" "$sel" | while IFS= read -r line; do
@@ -627,3 +699,8 @@ map д open
 map н copy
 map ь move
 
+# Перехід на початок та кінець (g, G -> п, П)
+map g
+map gg top
+map пп top          # g - на початок
+map П bottom       # G - в кінець
