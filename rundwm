@@ -15,7 +15,7 @@ sudo mkdir -p /tmp/.X11-unix
 sudo chown root:root /tmp/.X11-unix
 sudo chmod 1777 /tmp/.X11-unix
 
-touch /tmp/dwm-radio-status
+touch /tmp/eyebreak_status
 
 export GDK_BACKEND=x11
 export QT_QPA_PLATFORM=xcb
@@ -28,7 +28,8 @@ if ! pgrep -f "Xephyr :20" > /dev/null; then
     XEPHYR_PID=$!
 else
     # Якщо Xephyr вже запущений, виходимо
-    exit
+    rm -f "$LOCK"
+    exit 0
 fi
 
 while ! xdpyinfo -display :20 > /dev/null 2>&1; do
@@ -39,7 +40,6 @@ done
 cleanup_memory() {
     sync
     echo "Cleaning up temporary files..."
-    rm -f /tmp/dwm-radio-status 2>/dev/null
     find /tmp -maxdepth 1 -user "$(whoami)" -not -name ".X11-unix" -exec rm -rf {} + 2>/dev/null
     rm -f "$LOCK"
 }
@@ -49,8 +49,6 @@ kill_background() {
     echo "Stopping background processes on :20..."
 
     pkill -f mpv || true
-    pkill -f mpvdwm || true
-    pkill -f dunst || true
 
     for PID in "${BACKGROUND_PIDS[@]}"; do
         kill -TERM "$PID" 2>/dev/null
@@ -85,13 +83,16 @@ DISPLAY=:20 dunst &
 BACKGROUND_PIDS+=($!)
 
 # run mpvd
-mkdir -p /tmp
 echo "📻 Radio (Alt+R)" > /tmp/dwm-radio-status
 DISPLAY=:20 /usr/local/bin/mpvdwm &
 BACKGROUND_PIDS+=($!)
 
 # Запускаємо демон буфера обміну на вкладеному дисплеї та зберігаємо його PID
 DISPLAY=:20 clipmenud >/dev/null 2>&1 &
+BACKGROUND_PIDS+=($!)
+
+# Запускаємо eyebreak та зберігаємо його PID
+DISPLAY=:20 eyebreak -w 3600 -b 300 >/dev/null 2>&1 &
 BACKGROUND_PIDS+=($!)
 
 # Запускаємо статус-бар dwm та зберігаємо його PID
