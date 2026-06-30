@@ -1,8 +1,8 @@
 -- =============================================================================
 -- 0. СИСТЕМНІ НАЛАШТУВАННЯ ТА ШЛЯХИ
 -- =============================================================================
-vim.g.python3_host_prog = '/home/alex320388/venv/bin/python3'
-vim.env.PATH = "/home/alex320388/venv/bin:" .. vim.env.PATH
+vim.g.python3_host_prog = '~/venv/bin/python3'
+vim.env.PATH = "~/venv/bin:" .. vim.env.PATH
 vim.opt.runtimepath:append(vim.fn.expand("~/.local/share/nvim/site"))
 
 -- Вимикаємо непотрібні провайдери для прискорення завантаження
