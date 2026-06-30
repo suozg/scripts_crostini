@@ -156,10 +156,7 @@ cmp.setup({
   }
 })
 
--- Отримуємо capabilities від cmp
 local capabilities = require('cmp_nvim_lsp').default_capabilities()
-
--- Сучасна ініціалізація серверів згідно з вимогами lspconfig-nvim-0.11
 for _, server in ipairs(servers) do
     vim.lsp.config(server, {
         capabilities = capabilities,
@@ -318,7 +315,6 @@ vim.api.nvim_create_autocmd("InsertEnter", {
     group = augroup,
     callback = function()
         if saved_layout and saved_layout ~= "" then 
-            -- Асинхронно повертаємо мову, яка була в Insert режимі
             vim.fn.jobstart({ "xkb-switch", "-s", saved_layout })
             vim.fn.jobstart({ "pkill", "-RTMIN+1", "dwmblocks" })
         end
@@ -328,7 +324,6 @@ vim.api.nvim_create_autocmd("InsertEnter", {
 vim.api.nvim_create_autocmd("InsertLeave", {
     group = augroup,
     callback = function()
-        -- Миттєво зчитуємо поточну розкладку перед виходом
         local handle = io.popen("xkb-switch -p")
         if handle then
             local current = handle:read("*l")
