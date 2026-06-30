@@ -393,3 +393,5 @@ end, {range = true})
 map('n', '<leader>t', ':MakeTable<CR>')
 map('v', '<leader>t', ':MakeTable<CR>')
 
+
+
