@@ -2,32 +2,37 @@
 
 # --- Налаштування ---
 TMP_FILE="/tmp/ukraine_holidays.ics"
-EVENTS_BIN="/home/alex320388/.local/bin/dwm/my_tasks"
+EVENTS_BIN="$HOME/.local/bin/dwm/my_tasks"
 TODAY=$(date +%Y%m%d)
 FLAG="/tmp/holiday_notified_$TODAY"
+URL="https://calendar.google.com/calendar/ical/uk.ukrainian%23holiday%40group.v.calendar.google.com/public/basic.ics"
 
-# --- 1. Блок державних свят (Bash) ---
-# Завантажуємо календар, якщо його немає
-[[ ! -f "$TMP_FILE" ]] && curl -s "https://calendar.google.com/calendar/ical/uk.ukrainian%23holiday%40group.v.calendar.google.com/public/basic.ics" -o "$TMP_FILE"
+# --- 1. Асинхронне завантаження календаря ---
+# Якщо файлу немає в /tmp (перший старт після увімкнення ПК)
+if [ ! -f "$TMP_FILE" ]; then
+    touch "$TMP_FILE"
+    curl -s "$URL" -o "$TMP_FILE" &
+fi
 
-# Шукаємо свято через ripgrep
-HOLIDAY=$(rg -A 15 "DTSTART;VALUE=DATE:$TODAY" "$TMP_FILE" | rg "^SUMMARY:" | head -n 1 | sed 's/SUMMARY://' | tr -d '\r')
-
-# Вивід іконки для панелі (якщо є свято)
+# --- 2. Блок державних свят ---
 ICON_HOLIDAY=""
-if [ -n "$HOLIDAY" ]; then
-    ICON_HOLIDAY="🔔 "
-    # Сповіщення один раз на день
-    if [ ! -f "$FLAG" ]; then
-        notify-send "Сьогодні свято" "$HOLIDAY"
-        touch "$FLAG"
+HOLIDAY=""
+
+# Перевіряємо, чи файл не порожній (якщо завантаження ще триває)
+if [ -s "$TMP_FILE" ]; then
+    HOLIDAY=$(rg -A 15 "DTSTART;VALUE=DATE:$TODAY" "$TMP_FILE" | rg "^SUMMARY:" | head -n 1 | sed 's/SUMMARY://' | tr -d '\r')
+
+    if [ -n "$HOLIDAY" ]; then
+        ICON_HOLIDAY="🔔 "
+        if [ ! -f "$FLAG" ]; then
+            dunstify "Сьогодні свято" "$HOLIDAY"
+            touch "$FLAG"
+        fi
     fi
 fi
 
-# --- 2. Блок локальних подій (C) ---
-# Викликаємо скомпільовану програму і зберігаємо її вивід
-LOCAL_EVENTS=$($EVENTS_BIN)
+# --- 3. Блок локальних подій (C) ---
+LOCAL_EVENTS=$($EVENTS_BIN 2>/dev/null)
 
-# --- 3. Фінальний вивід для панелі (dwmblocks/i3blocks) ---
-# Об'єднуємо іконку свята та результат роботи C-скрипта
+# --- 4. Фінальний вивід для панелі ---
 echo "${ICON_HOLIDAY}${LOCAL_EVENTS}"
