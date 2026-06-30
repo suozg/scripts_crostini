@@ -65,7 +65,7 @@ alias lowriter='lowriter --nologo --nofirststartwizard'
 alias loimpress='loimpress --nologo --nofirststartwizard'
 alias localc='localc --nologo --nofirststartwizard'
 alias trash-clean='trash-empty && pkill -RTMIN+2 dwmblocks'
-alias vif='nvim $(rg --files --hidden 2>/dev/null | fzf --preview "batcat --color=always --style=numbers --line-range :500 {}")'
+alias v='nvim $(rg --files --hidden 2>/dev/null | fzf --preview "batcat --color=always --style=numbers --line-range :500 {}")'
 
 mkd() {
     mkdir -p "$1" && cd "$1"
@@ -106,8 +106,8 @@ export FZF_DEFAULT_OPTS="
 
 # Кастомізація Ctrl + T (Пошук файлів)
 export FZF_CTRL_T_OPTS="
-  --height=100% \
-  --border=rounded \
+  --height=80% \
+  --border=sharp \
   --margin=1 \
   --header='🔍 ПОШУК ФАЙЛІВ ТА КАТАЛОГІВ' \
   --header-first \
@@ -115,8 +115,8 @@ export FZF_CTRL_T_OPTS="
 
 # Кастомізація Ctrl + R (Пошук історії команд)
 export FZF_CTRL_R_OPTS="
-  --height=100% \
-  --border=rounded \
+  --height=80% \
+  --border=sharp \
   --margin=1 \
   --header='📜 ИСТОРІЯ КОМАНД BASH' \
   --header-first \
@@ -127,8 +127,8 @@ _fzf_goto_dir() {
     local dir
     # Опції прописані прямо тут, тому Bash зчитає їх без жодних помилок парсингу
     dir=$(find . -path '*/.*' -prune -o -type d -print 2> /dev/null | fzf +m \
-        --height=100% \
-        --border=rounded \
+        --height=80% \
+        --border=sharp \
         --margin=1 \
         --header='📁 ШВИДКИЙ ПЕРЕХІД ДО ДИРЕКТОРІЇ' \
         --header-first \
