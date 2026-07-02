@@ -116,27 +116,51 @@ if [ -z "${PASSPHRASE:-}" ]; then
 fi
 
 ############################
-# RSYNC (безопасный)
+# RSYNC 
 ############################
 
-safe_rsync() {
+# Синхронізація з явним ігноруванням .fuse_hidden та дозволом на видалення папок
+rsync_clean_sync() {
   src="$1"
   dst="$2"
 
-  [ -n "$src" ] && [ -n "$dst" ] || die "rsync: пустий шлях"
-  [ -d "$src" ] || die "rsync: src не існує: $src"
+  [ -n "$src" ] && [ -n "$dst" ] || die "rsync_clean: пустий шлях"
+  [ -d "$src" ] || die "rsync_clean: src не існує: $src"
 
   mkdir -p "$dst" || die "не можу створити директорію: $dst"
   sleep 1
 
+  # Створюємо тимчасовий файл списку
+  local file_list
+  file_list=$(mktemp /tmp/rsync_files.XXXXXX)
+
+  log "Створення списку файлів для: $src (без .fuse_hidden*)"
+  # Використовуємо find для генерації списку, явно виключаючи .fuse_hidden*
+  find "$src" -not -name ".fuse_hidden*" -printf "%P\n" > "$file_list"
+
+  if [ ! -s "$file_list" ]; then
+      log "INFO: Сsource порожній або містить лише .fuse_hidden*, нічого копіювати"
+      rm -f "$file_list"
+      return 0
+  fi
+
+  # Запускаємо rsync, використовуючи список.
+  # rsync копіює ТІЛЬКИ те, що в списку, і тепер `--delete` працює коректно,
+  # бо rsync бачить, які файли були видалені, і не бачить .fuse_hidden як перешкоду.
+  log "Синхронізація: $src → $dst"
   rsync -rptDo \
     --progress \
     --delete \
     --delete-after \
     --itemize-changes \
+    --files-from="$file_list" \
     "$src/" "$dst/" \
     2>&1 | tee -a "$LOGFILE"
+
+  # Очищуємо тимчасовий файл
+  rm -f "$file_list"
 }
+
 
 ############################
 # КОПИРОВАНИЕ
@@ -145,14 +169,15 @@ safe_rsync() {
 read -rp "Копіювати awards? [y/N]: " ans
 if [[ "$ans" =~ ^[yYаАдД]$ ]]; then
   log "Копіювання awards"
-  safe_rsync "$DIRECTORY_BASE" "$DIRECTORY_SDCARD_BASE"
+  rsync_clean_sync "$DIRECTORY_BASE" "$DIRECTORY_SDCARD_BASE" # ОНОВЛЕНО
 fi
 
 read -rp "Копіювати WORK? [y/N]: " ans
 if [[ "$ans" =~ ^[yYаАдД]$ ]]; then
   log "Копіювання WORK"
-  safe_rsync "$WORK_DIR" "$DIRECTORY_SDCARD_NOW/WORK"
+  rsync_clean_sync "$WORK_DIR" "$DIRECTORY_SDCARD_NOW/WORK" # ОНОВЛЕНО
 fi
+
 
 ############################
 # ШИФРОВАНИЕ
@@ -191,16 +216,23 @@ done < <(
 
 unset PASSPHRASE
 
+
 ############################
-# СИНХРОНИЗАЦИЯ
+# СИНХРОНИЗАЦИЯ (SD -> Drive/Kingston)
 ############################
 
+# Використовуємо прямий rsync без --exclude, щоб скрипт ВИДАЛЯВ .fuse_hidden з приймачів
+
 log "Sync → Google Drive"
-safe_rsync "$DIRECTORY_SDCARD_NOW" "$GOOGLE_DRIVE_DIR"
+mkdir -p "$GOOGLE_DRIVE_DIR"
+sleep 1
+rsync -rptDo --progress --delete --delete-after --itemize-changes "$DIRECTORY_SDCARD_NOW/" "$GOOGLE_DRIVE_DIR/" 2>&1 | tee -a "$LOGFILE"
 
 if [ -d "$DIRECTORY_KINGSTON" ]; then
   log "Sync → KINGSTON"
-  safe_rsync "$DIRECTORY_SDCARD_NOW" "$DIRECTORY_KINGSTON"
+  mkdir -p "$DIRECTORY_KINGSTON"
+  sleep 1
+  rsync -rptDo --progress --delete --delete-after --itemize-changes "$DIRECTORY_SDCARD_NOW/" "$DIRECTORY_KINGSTON/" 2>&1 | tee -a "$LOGFILE"
 fi
 
 sync
