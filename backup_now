@@ -29,10 +29,132 @@ die() {
   exit 1
 }
 
+
+
 ############################
-# ПРОВЕРКА ДИРЕКТОРИЙ
+# СИНХРОНІЗАЦІЯ
 ############################
 
+rsync_clean_sync() {
+    local src="$1"
+    local dst="$2"
+
+    [ -n "$src" ] && [ -n "$dst" ] || die "rsync_clean: пустий шлях"
+    [ -d "$src" ] || die "rsync_clean: src не існує: $src"
+
+    mkdir -p "$dst" || die "Не можу створити директорію: $dst"
+
+    local file_list
+    file_list=$(mktemp /tmp/rsync_files.XXXXXX)
+
+    trap 'rm -f "$file_list"' RETURN
+
+    log "Створення списку файлів для: $src (без .fuse_hidden*)"
+
+    find "$src" \
+        ! -name ".fuse_hidden*" \
+        -printf "%P\n" >"$file_list"
+
+    if [ ! -s "$file_list" ]; then
+        log "INFO: Немає файлів для синхронізації"
+        return 0
+    fi
+
+    log "Очищення застарілих файлів у приймачі..."
+
+    while IFS= read -r -d '' dst_file; do
+        local rel="${dst_file#$dst/}"
+
+        if [[ "$rel" != .fuse_hidden* ]] &&
+           [ ! -e "$src/$rel" ]; then
+            rm -rf -- "$dst_file"
+        fi
+    done < <(find "$dst" -mindepth 1 -print0)
+
+    local total_files current=0
+    total_files=$(wc -l < "$file_list")
+
+    log "Синхронізація: $src → $dst"
+
+    while IFS= read -r rel_path; do
+        ((++current))
+
+        local display_path="$rel_path"
+
+        if [ ${#display_path} -gt 60 ]; then
+            display_path="...${display_path: -57}"
+        fi
+
+        if [ -d "$src/$rel_path" ]; then
+            mkdir -p "$dst/$rel_path"
+        continue
+        fi
+
+        mkdir -p "$(dirname "$dst/$rel_path")"
+
+        output=$(
+            rsync -rptDo \
+                --out-format="%n" \
+                "$src/$rel_path" \
+                "$dst/$rel_path" \
+                2>&1
+        )
+
+        status=$?
+
+        printf '%s\n' "$output" >>"$LOGFILE"
+
+        (( status == 0 )) || die "Помилка копіювання: $rel_path"
+
+        if [[ -n "$output" ]]; then
+            printf "\r\033[K[%d/%d] %s" \
+                "$current" "$total_files" "$display_path"
+        fi
+
+    done <"$file_list"
+
+    printf "\r\033[K[%d/%d] Готово\n" \
+        "$total_files" "$total_files"
+}
+
+############################
+# МЕНЮ ТА ПЕРЕВІРКА KINGSTON
+############################
+
+# Перевіряємо, чи підключено KINGSTON (чи існує точка монтування/директорія)
+if [ -d "/mnt/chromeos/removable/KINGSTON" ]; then
+  echo "------------------------------------------------"
+  echo "Знайдено диск KINGSTON! Оберіть дію:"
+  echo "1 - Скопіювати SD Card -> KINGSTON (пряма синхронізація)"
+  echo "2 - Оновити бекап глобально (повний скрипт з шифруванням)"
+  echo "------------------------------------------------"
+  read -rp "Ваш вибір [1-2]: " menu_ans
+
+  if [[ "$menu_ans" == "1" ]]; then
+    log "Запуск синхронізації SD Card ($DIRECTORY_SDCARD_NOW) -> KINGSTON ($DIRECTORY_KINGSTON)..."
+    
+    # Перевіряємо базову наявність SD перед копіюванням
+    [ -d "$DIRECTORY_SDCARD_NOW" ] || die "Директорія недоступна: $DIRECTORY_SDCARD_NOW"
+    
+    rsync_clean_sync "$DIRECTORY_SDCARD_NOW" "$DIRECTORY_KINGSTON"
+    sync
+    log "Синхронізація SD -> KINGSTON завершена успішно!"
+    exit 0
+  elif [[ "$menu_ans" == "2" ]]; then
+    log "Обрано глобальне оновлення. Переходимо до виконання скрипта..."
+  else
+    die "Невірний вибір. Вихід."
+  fi
+else
+  log "Диск KINGSTON не знайдено. Автоматично запускається глобальне оновлення..."
+
+fi
+
+############################
+# ПРОВЕРКА ДИРЕКТОРИЙ (БЕЗ KINGSTON)
+############################
+
+# Директорію KINGSTON звідси прибрано, щоб скрипт не падав, якщо диска немає
 DIRS=(
   "$DIRECTORY_SDCARD"
   "$DIRECTORY_SDCARD_NOW"
@@ -51,13 +173,11 @@ done
 ############################
 KEYB=""
 keyblayout() {
-    # Отримуємо поточну розкладку миттєво через xkb-switch
     local current_short
     current_short=$(xkb-switch -p)
     
     [[ "$current_short" == "us" ]] && KEYB="🗽US" || KEYB="🌻UA"
 }
-
 
 ############################
 # ТРАНСЛИТЕРАЦИЯ
@@ -116,68 +236,20 @@ if [ -z "${PASSPHRASE:-}" ]; then
 fi
 
 ############################
-# RSYNC 
-############################
-
-# Синхронізація з явним ігноруванням .fuse_hidden та дозволом на видалення папок
-rsync_clean_sync() {
-  src="$1"
-  dst="$2"
-
-  [ -n "$src" ] && [ -n "$dst" ] || die "rsync_clean: пустий шлях"
-  [ -d "$src" ] || die "rsync_clean: src не існує: $src"
-
-  mkdir -p "$dst" || die "не можу створити директорію: $dst"
-  sleep 1
-
-  # Створюємо тимчасовий файл списку
-  local file_list
-  file_list=$(mktemp /tmp/rsync_files.XXXXXX)
-
-  log "Створення списку файлів для: $src (без .fuse_hidden*)"
-  # Використовуємо find для генерації списку, явно виключаючи .fuse_hidden*
-  find "$src" -not -name ".fuse_hidden*" -printf "%P\n" > "$file_list"
-
-  if [ ! -s "$file_list" ]; then
-      log "INFO: Сsource порожній або містить лише .fuse_hidden*, нічого копіювати"
-      rm -f "$file_list"
-      return 0
-  fi
-
-  # Запускаємо rsync, використовуючи список.
-  # rsync копіює ТІЛЬКИ те, що в списку, і тепер `--delete` працює коректно,
-  # бо rsync бачить, які файли були видалені, і не бачить .fuse_hidden як перешкоду.
-  log "Синхронізація: $src → $dst"
-  rsync -rptDo \
-    --progress \
-    --delete \
-    --delete-after \
-    --itemize-changes \
-    --files-from="$file_list" \
-    "$src/" "$dst/" \
-    2>&1 | tee -a "$LOGFILE"
-
-  # Очищуємо тимчасовий файл
-  rm -f "$file_list"
-}
-
-
-############################
 # КОПИРОВАНИЕ
 ############################
 
 read -rp "Копіювати awards? [y/N]: " ans
 if [[ "$ans" =~ ^[yYаАдД]$ ]]; then
   log "Копіювання awards"
-  rsync_clean_sync "$DIRECTORY_BASE" "$DIRECTORY_SDCARD_BASE" # ОНОВЛЕНО
+  rsync_clean_sync "$DIRECTORY_BASE" "$DIRECTORY_SDCARD_BASE"
 fi
 
 read -rp "Копіювати WORK? [y/N]: " ans
 if [[ "$ans" =~ ^[yYаАдД]$ ]]; then
   log "Копіювання WORK"
-  rsync_clean_sync "$WORK_DIR" "$DIRECTORY_SDCARD_NOW/WORK" # ОНОВЛЕНО
+  rsync_clean_sync "$WORK_DIR" "$DIRECTORY_SDCARD_NOW/WORK"
 fi
-
 
 ############################
 # ШИФРОВАНИЕ
@@ -216,12 +288,9 @@ done < <(
 
 unset PASSPHRASE
 
-
 ############################
 # СИНХРОНИЗАЦИЯ (SD -> Drive/Kingston)
 ############################
-
-# Використовуємо прямий rsync без --exclude, щоб скрипт ВИДАЛЯВ .fuse_hidden з приймачів
 
 log "Sync → Google Drive"
 mkdir -p "$GOOGLE_DRIVE_DIR"
