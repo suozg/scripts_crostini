@@ -10,11 +10,8 @@ vim.g.loaded_ruby_provider = 0
 vim.g.loaded_perl_provider = 0
 vim.g.loaded_node_provider = 0
 
--- Змушуємо Vim розуміти українські літери як команди в Normal/Visual режимах
-vim.opt.langmap = 'ФИСВУАПРШОЛДЬТЩЗЙКЫЕГМЦЧНЯІЇЄҐ;ABCDEFGHIJKLMNOPQRSTUVWXYZI`":,фисвуапршолдьтщзйкыегмцчняіїєґ;abcdefghijklmnopqrstuvwxyzi`":'
-vim.keymap.set('v', 'ж', ':', { noremap = true })
-vim.keymap.set('n', 'ж', ':', { noremap = true })
- 
+-- Робимо так, щоб Neovim розумів українську розкладку в Normal/Visual режимах
+vim.opt.langmap = [[ЙQ,ЦW,УE,КR,ЕT,НY,ГU,ШI,ЩO,ЗP,Х{,Ї},ФA,ІS,ВD,АF,ПG,РH,ОJ,ЛK,ДL,Ж\:,Є\",ЯZ,ЧX,СC,МV,ИB,ТN,ЬM,Б\<,Ю\>,йq,цw,уe,кr,еt,нy,гu,шi,щo,зp,х[,ї],фa,іs,вd,аf,пg,рh,оj,лk,дl,ж\;,є\',яz,чx,сc,мv,иb,тn,ьm,б\,,ю.]]
 
 -- Маппінги для командного рядка (щоб працювали q, w, wq українською)
 vim.keymap.set('c', 'й', 'q', { noremap = true })
@@ -49,6 +46,5 @@ opt.foldenable = true
 opt.updatetime = 300
 opt.conceallevel = 2
 opt.concealcursor = 'nc'
-
 
 
