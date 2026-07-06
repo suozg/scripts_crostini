@@ -13,10 +13,18 @@ vim.g.loaded_node_provider = 0
 -- Робимо так, щоб Neovim розумів українську розкладку в Normal/Visual режимах
 vim.opt.langmap = [[ЙQ,ЦW,УE,КR,ЕT,НY,ГU,ШI,ЩO,ЗP,Х{,Ї},ФA,ІS,ВD,АF,ПG,РH,ОJ,ЛK,ДL,Ж\:,Є\",ЯZ,ЧX,СC,МV,ИB,ТN,ЬM,Б\<,Ю\>,йq,цw,уe,кr,еt,нy,гu,шi,щo,зp,х[,ї],фa,іs,вd,аf,пg,рh,оj,лk,дl,ж\;,є\',яz,чx,сc,мv,иb,тn,ьm,б\,,ю.]]
 
--- Маппінги для командного рядка (щоб працювали q, w, wq українською)
-vim.keymap.set('c', 'й', 'q', { noremap = true })
-vim.keymap.set('c', 'ц', 'w', { noremap = true })
-vim.keymap.set('c', 'у', 'e', { noremap = true }) -- про всяк випадок для :e
+-- маппінги для командного рядка (працюють ТІЛЬКИ після ":", але не заважають пошуку "/")
+local function cmd_map(rus, eng)
+  vim.keymap.set('c', rus, function()
+    -- Якщо зараз вводиться команда (:), то міняємо літеру, інакше (для пошуку / або ?) залишаємо як є
+    return vim.fn.getcmdtype() == ':' and eng or rus
+  end, { expr = true, noremap = true })
+end
+
+cmd_map('й', 'q')
+cmd_map('ц', 'w')
+cmd_map('у', 'e')
+
 
 -- =============================================================================
 -- 2. OPTIONS (Налаштування)
