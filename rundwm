@@ -83,7 +83,7 @@ DISPLAY=:20 dunst &
 BACKGROUND_PIDS+=($!)
 
 # run mpvd
-echo "📻 Radio (Alt+R)" > /tmp/dwm-radio-status
+echo "📻Radio" > /tmp/dwm-radio-status
 DISPLAY=:20 /usr/local/bin/mpvdwm &
 BACKGROUND_PIDS+=($!)
 

@@ -1,30 +1,36 @@
 #!/bin/bash
 
-# Проверяем, существует ли команда gpg
-if ! command -v gpg &> /dev/null
-then
-    echo "Інсталюйте GPG."
-    exit 1
+PINENTRY="/usr/local/bin/pinentry-dmenu"
+
+# Получение пароля
+if [ -x "$PINENTRY" ]; then
+    PASSWORD=$(
+        printf "SETTITLE GPG\nSETPROMPT Введіть пароль:\nGETPIN\n" | "$PINENTRY" \
+        | awk -F' ' '/^D / {print substr($0,3)}'
+    )
+
+    if [ -z "$PASSWORD" ]; then
+        echo "Пароль не введено."
+        exit 1
+    fi
+else
+    echo -n "Введіть пароль: "
+    read -s PASSWORD
+    echo
 fi
 
-# Запрашиваем пароль для расшифровки
-echo -n "Введіть пароль: "
-read -s PASSWORD
-echo
-
-# Используем find для поиска всех .gpg файлов в текущей директории и подкаталогах
+# Расшифровка файлов
 find . -type f -name "*.gpg" | while read -r file
 do
-    echo "Розшифрування файла: $file"    
-    # Создаем временный файл в оперативной памяти а не на диске
+    echo "Розшифрування файла: $file"
     tmpfile=$(mktemp /dev/shm/tmp.XXXXXX)
-    # Передаем пароль в GPG для расшифровки файла во временный файл
+
     if echo "$PASSWORD" | gpg --batch --yes --passphrase-fd 0 --decrypt "$file" > "$tmpfile"; then
         mv "$tmpfile" "${file%.gpg}"
         echo "Файл розшифрований: $file"
-        #rm -f "$file"  # Удаляем зашифрованный файл после расшифровки (если нужно)
     else
         echo "Помилка розшифрування файла: $file"
-        rm -f "$tmpfile"  # Удаляем временный файл при ошибке
+        rm -f "$tmpfile"
     fi
 done
+
