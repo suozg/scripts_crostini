@@ -244,7 +244,6 @@ if [[ -n "$DWM_PID" ]]; then
     kill -HUP "$DWM_PID"
 fi
 
-
 # =============== BAT / BATCAT ============
 BAT_CONFIG_DIR="$HOME/.config/bat"
 BAT_CONFIG="$BAT_CONFIG_DIR/config"

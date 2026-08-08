@@ -1,8 +1,8 @@
 #!/bin/bash
 echo "# Скрипт для конвертації зображень у PDF з опціональним накладанням штампа."
 echo "# Використання:"
-echo "#   ./pix_2_pdf_universal.sh"
-echo "#   ./pix_2_pdf_universal.sh -s /шлях/до/водяного_знаку.pdf"
+echo "#   ./pix2pdf.sh"
+echo "#   ./pix2pdf.sh -s /шлях/до/водяного_знаку.pdf"
 
 set -euo pipefail # <<< ДОДАНО ДЛЯ ПІДВИЩЕННЯ НАДІЙНОСТІ
 
@@ -63,23 +63,25 @@ if [ -n "$STAMP_FILE" ]; then
 fi
 
 # --- ЗБІР ФАЙЛІВ ЗОБРАЖЕНЬ ---
-FILES_TO_CONVERT=()
-for mask in "${IMAGE_MASKS[@]}"; do
-    # Обробка випадків, коли маска не знаходить файлів (інакше set -u може викликати помилку)
-    shopt -s nullglob # Включаємо nullglob, щоб маски, які не знайшли файлів, розширювалися до порожнього списку
-    for file in $mask; do
-        if [ -f "$file" ]; then
-            FILES_TO_CONVERT+=("$file")
-        fi
-    done
-    shopt -u nullglob # Вимикаємо nullglob
-done
+shopt -s nullglob
+shopt -s nocaseglob # Дозволяє *.jpg знаходити і .JPG, і .jPeG
 
+# Розгортаємо всі маски ОДНИМ махом. 
+# Bash сам відфільтрує дублікати, якщо файл підпадає під кілька умов.
+FILES_TO_CONVERT=( *.jpg *.jpeg *.png )
 
-if [ ${#FILES_TO_CONVERT[@]} -eq 0 ]; then
-    echo "Помилка: Не знайдено файлів зображень для конвертації."
+shopt -u nullglob
+shopt -u nocaseglob
+
+# Перевірка кількості
+COUNT=${#FILES_TO_CONVERT[@]}
+echo "Знайдено унікальних файлів: $COUNT"
+
+if [ "$COUNT" -eq 0 ]; then
+    echo "Помилка: Не знайдено файлів зображень."
     exit 1
 fi
+
 
 # --- ВИКОНАННЯ КОНВЕРТАЦІЇ ---
 
@@ -114,6 +116,7 @@ else
 
     echo "✅ Успіх! Фінальний документ з колонтитулом: $OUTPUT_FILE"
 
+    echo $i
 fi
 
 # 'trap cleanup EXIT' забезпечить видалення тимчасових файлів після завершення.
