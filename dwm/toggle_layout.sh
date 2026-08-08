@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 1. Режим для dwmblocks (просто читаємо те, що підготував dwm)
+# 1. Режим для dwmblocks (читаємо те, що підготував dwm)
 if [ "$1" = "status" ]; then
     if [ -f /tmp/dwm_layout ]; then
         cat /tmp/dwm_layout
@@ -10,20 +10,19 @@ if [ "$1" = "status" ]; then
     exit 0
 fi
 
-# 2. Логіка перемикання розкладки за допомогою xkb-switch
-# (оскільки це робиться вручну користувачем за гарячою клавішею)
+# 2. Логіка перемикання розкладки
 current=$(xkb-switch -p)
 if [[ "$current" == "us" ]]; then
-    xkb-switch -s ua
+    target="ua"
+    display_text="🌻UA"
 else
-    xkb-switch -s us
+    target="us"
+    display_text="🗽US"
 fi
 
-# 3. Примусово оновлюємо файл і сповіщаємо dwmblocks про зміни
-if [[ "$current" == "us" ]]; then
-    echo "🌻UA" > /tmp/dwm_layout
-else
-    echo "🗽US" > /tmp/dwm_layout
+# Пробуємо перемкнути
+if xkb-switch -s "$target"; then
+    # 3. Якщо перемкнувся, оновлюємо файл і сповіщаємо dwmblocks
+    echo "$display_text" > /tmp/dwm_layout
+    pkill -RTMIN+1 dwmblocks
 fi
-
-pkill -RTMIN+1 dwmblocks
