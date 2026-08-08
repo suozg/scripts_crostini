@@ -1,20 +1,29 @@
 #!/bin/bash
 
-# 1. Отримуємо поточну розкладку миттєво через xkb-switch
-current=$(xkb-switch -p)
-
-# 2. Режим для dwmblocks (відображення статусу)
+# 1. Режим для dwmblocks (просто читаємо те, що підготував dwm)
 if [ "$1" = "status" ]; then
-    [[ "$current" == "us" ]] && echo "🗽US" || echo "🌻UA"
+    if [ -f /tmp/dwm_layout ]; then
+        cat /tmp/dwm_layout
+    else
+        echo "🗽US"
+    fi
     exit 0
 fi
 
-# 3. Логіка миттєвого перемикання
+# 2. Логіка перемикання розкладки за допомогою xkb-switch
+# (оскільки це робиться вручну користувачем за гарячою клавішею)
+current=$(xkb-switch -p)
 if [[ "$current" == "us" ]]; then
     xkb-switch -s ua
 else
     xkb-switch -s us
 fi
 
-# 4. Сповіщаємо dwmblocks, щоб емодзі в панелі змінився миттєво
+# 3. Примусово оновлюємо файл і сповіщаємо dwmblocks про зміни
+if [[ "$current" == "us" ]]; then
+    echo "🌻UA" > /tmp/dwm_layout
+else
+    echo "🗽US" > /tmp/dwm_layout
+fi
+
 pkill -RTMIN+1 dwmblocks
