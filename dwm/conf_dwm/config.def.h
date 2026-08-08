@@ -36,14 +36,16 @@ static const Rule rules[] = {
 	 *	WM_NAME(STRING) = title
 	 */
 	/* class, instance, title, tags, mask, switchtotag, isfloating, monitor */
-	{ "Xmessage",  NULL,    NULL,                        0,    0,     1,   -1 },
-	{ "Gimp",      NULL,    NULL,                   1 << 4,    1,     0,   -1 },
-	{ "Awardswx",  NULL,    NULL,                   1 << 2,    1,     0,   -1 },
-	{ "Drs_wx",    NULL,    NULL,                   1 << 1,    1,     0,   -1 },
-    { NULL,        NULL,    "Прив'язка до запису",  1 << 2,    1,     1,   -1 },
-    { NULL,        NULL,    "Пошук отримувача",     1 << 2,    1,     1,   -1 },
-    { "st-256color", "btop",  NULL,                 1 << 8,    1,     0,   -1 },
-    { "st-256color", "nethogs",  NULL,              1 << 7,    1,     0,   -1 },
+	{ "Xmessage",      NULL,        NULL,                       0,         0,     1,   -1 },
+	{ "Gimp",          NULL,        NULL,                       1 << 4,    1,     0,   -1 },
+	{ "Awardswx",      NULL,        NULL,                       1 << 2,    1,     0,   -1 },
+	{ "Drs_wx",        NULL,        NULL,                       1 << 1,    1,     0,   -1 },
+    { NULL,            NULL,        "Прив'язка до запису",      1 << 2,    1,     1,   -1 },
+    { NULL,            NULL,        "Eye Break",                ~0,        0,     1,   -1 },
+    { NULL,            NULL,        "Пошук отримувача",         1 << 2,    1,     1,   -1 },
+    { "st-256color",   NULL,        "Розклад справ та завдань", 1 << 3,    1,     0,   -1 },
+    { "st-256color",   "btop",      NULL,                       1 << 8,    1,     0,   -1 },
+    { "st-256color",   "nethogs",   NULL,                       1 << 7,    1,     0,   -1 },
 };
 
 /* layout(s) */
@@ -128,12 +130,19 @@ static const char *clipboardmenu[]  = { "/home/alex320388/.local/bin/clipmenu-th
 static const char *clipdelcmd[] = { "clipdel", "-d", ".", NULL };
 static const char *open_events[]  = { "/home/alex320388/.local/bin/dwm/my_tasks_edit.sh", NULL };
 static const char *select_color[]  = { "/home/alex320388/.local/bin/dwm/selcolor_with_dmenuklik.sh", NULL }; 
+static const char *eyebreak_force[] = { "pkill", "-USR1", "-f", "eyebreak", NULL };
+static const char *eyebreak_skip[]  = { "pkill", "-USR2", "-f", "eyebreak", NULL };
+static const char *orgagendacmd[] = { "/home/alex320388/.local/bin/st", "-t", "Розклад справ та завдань", "-e", "nvim", "-c", "lua require('orgmode').agenda:todos()", NULL };
+
 
 static const Key keys[] = {
 	/* modifier             key     function        argument */
     { MODKEY,             167,       spawn,         SHCMD("bash -c 'sleep 0.2; win=$(/usr/bin/xdotool getwindowfocus getwindowname); if echo \"$win\" | grep -iq libreoffice; then /usr/bin/xdotool key --clearmodifiers ctrl+S; fi'") }, /* стрелка вправо вверху */
     { MODKEY,             166,       spawn,         SHCMD("bash -c 'sleep 0.2; win=$(/usr/bin/xdotool getwindowfocus getwindowname); if echo \"$win\" | grep -iq libreoffice; then /usr/bin/xdotool key --clearmodifiers ctrl+o; fi'") }, /* стрелка влева вверху */
-	{ MODKEY|ControlMask,   28,     spawn,          {.v = themecmd } },      // t
+    { MODKEY,               38,     spawn,          {.v = orgagendacmd } },  // a 
+    { MODKEY,               72,     spawn,          {.v = eyebreak_force } },// F6 
+    { MODKEY,               73,     spawn,          {.v = eyebreak_skip } }, // F7
+    { MODKEY|ControlMask,   28,     spawn,          {.v = themecmd } },      // t
 	{ MODKEY,               33,     spawndmenu,     {0} },                   // p
 	{ MODKEY,               36,     zoom,           {0} },                   // Return
 	{ MODKEY,               39,     spawn,          {.v = select_color } },  // s
@@ -197,3 +206,4 @@ static const Button buttons[] = {
 	{ ClkTagBar,            MODKEY,         Button1,        tag,            {0} },
 	{ ClkTagBar,            MODKEY,         Button3,        toggletag,      {0} },
 };
+
