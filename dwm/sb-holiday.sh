@@ -10,11 +10,11 @@ HOLIDAY=$(rg -A 15 "DTSTART;VALUE=DATE:$TODAY" "$TMP_FILE" | rg "^SUMMARY:" | he
 if [ ! -z "$HOLIDAY" ]; then
     # Виводимо в панель (з іконкою)
     echo "🔔"
-    # Створюємо "мітку", щоб не спамити notify-send
+    # Створюємо "мітку", щоб не спамити dunstify
     # Якщо сповіщення сьогодні ще не було — надсилаємо
     FLAG="/tmp/holiday_notified_$TODAY"
     if [ ! -f "$FLAG" ]; then
-        notify-send "Сьогодні свято" "$HOLIDAY"
+        dunstify "Сьогодні свято" "$HOLIDAY"
         touch "$FLAG"
     fi
 else
