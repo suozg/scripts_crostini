@@ -13,7 +13,6 @@ set dircounts
 #set drawbox
 set number
 set wrapscroll
-set scrolloff 5  # всегда видно минимум 5 строк над и под курсором
 set watch
 
 # Визуальные индикаторы
@@ -69,7 +68,7 @@ map е tag-toggle
 # ------- SELECT -------------
 map <c-s> push :glob-select<space>
 
-map <c-a> invert
+map м invert
 
 # ---------- QUICK DIRS ----------
 map gh cd ~/WORK
@@ -105,21 +104,103 @@ cmd zoxide_remove ${{
 map zr zoxide_remove
 map як zoxide_remove
 
-# # ------ OPEN FILES ----------
-cmd open_files ${{
+
+# ---------------------------
+# Монтування шифрованої NOW на SD Card
+cmd mount-now %{{
+    fusermount -u -z "$HOME/.now_unencrypted" 2>/dev/null || true
+
+    if [ -d "/mnt/chromeos/removable/SD Card/now" ]; then
+        rclone mount --crypt-remote "/mnt/chromeos/removable/SD Card/now" now_crypt: "$HOME/.now_unencrypted" --dir-perms 0777 --daemon
+        pkill -RTMIN+2 dwmblocks 2>/dev/null || true
+        lf -remote "send $id reload"
+        lf -remote "send $id echo 'NOW на SD Card успішно змонтована!'"
+    else
+        lf -remote "send $id echo 'Помилка: SD-картку не знайдено!'"
+    fi
+}}
+map gmn mount-now
+map пьт mount-now
+
+# (unmount) — безпечно відмонтовує папку
+cmd unmount-now %{{
+    # Перевірка: якщо йде процес копіювання — забороняємо відмонтування
+    if pgrep -x "cp" >/dev/null || pgrep -x "rsync" >/dev/null; then
+        lf -remote "send $id echo '⚠️ ПОМИЛКА: Не можна відмонтувати під час копіювання!'"
+        exit 1
+    fi
+
+    fusermount -u -z "$HOME/.now_unencrypted" 2>/dev/null || true
+    
+    # Оновлюємо статус-бар dwmblocks та перезавантажуємо lf
+    pkill -RTMIN+2 dwmblocks 2>/dev/null || true
+    lf -remote "send $id reload"
+    lf -remote "send $id echo 'NOW на SD Card відмонтована'"
+}}
+map gun unmount-now
+map пгт unmount-now
+
+
+# ---------------------------
+# Монтування шифрованої OLD на SD Card
+cmd mount-old %{{
+    fusermount -u -z "$HOME/.old_unencrypted" 2>/dev/null || true
+
+    if [ -d "/mnt/chromeos/removable/SD Card/old" ]; then
+        rclone mount --crypt-remote "/mnt/chromeos/removable/SD Card/old" old_crypt: "$HOME/.old_unencrypted" --dir-perms 0777 --daemon
+        pkill -RTMIN+2 dwmblocks 2>/dev/null || true
+        lf -remote "send $id reload"
+        lf -remote "send $id echo 'OLD на SD Card успішно змонтована!'"
+    else
+        lf -remote "send $id echo 'Помилка: SD-картку не знайдено!'"
+    fi
+}}
+map gmo mount-old
+map пьщ mount-old
+
+# (unmount) — безпечно відмонтовує папку
+cmd unmount-old %{{
+    # Перевірка: якщо йде процес копіювання — забороняємо відмонтування
+    if pgrep -x "cp" >/dev/null || pgrep -x "rsync" >/dev/null; then
+        lf -remote "send $id echo '⚠️ ПОМИЛКА: Не можна відмонтувати під час копіювання!'"
+        exit 1
+    fi
+
+    fusermount -u -z "$HOME/.old_unencrypted" 2>/dev/null || true
+    
+    # Оновлюємо статус-бар dwmblocks та перезавантажуємо lf
+    pkill -RTMIN+2 dwmblocks 2>/dev/null || true
+    lf -remote "send $id reload"
+    lf -remote "send $id echo 'OLD на SD Card відмонтована'"
+}}
+map guo unmount-old
+map пгщ unmount-old
+
+
+# ---------- FULL PAGER VIEW ----------
+cmd view_doc ${{
+    clear
+    ~/.config/lf/readoc.sh "$f"
+}}
+map I view_doc
+map Ш view_doc
+
+# ---------- ПЕРЕГЛЯД ФАЙЛІВ (Right / l / д) ----------
+cmd smart_view ${{
     if [ -d "$f" ]; then
-        zoxide add "$res"
+        zoxide add "$PWD/$f" 2>/dev/null
         command lf -remote "send $id cd \"$f\""
         exit
     fi
 
     ext="${f##*.}"
     ext=$(printf "%s" "$ext" | tr '[:upper:]' '[:lower:]')
-    
-    xsetroot -name "    "
-    
+
     case "$ext" in
-        
+        # Таблиці за стрілкою вправо відкриваємо у VisiData (vd)
+        xls|xlsx|ods|csv|tsv)
+            vd "$f"
+            ;;
         zip|rar|7z|tar|gz|bz2|tgz)
             lf -remote "send $id extract"
             ;;
@@ -133,14 +214,49 @@ cmd open_files ${{
             fi
             read -r _
             ;;
+        # Документи, PDF, коди, тексти — у пейджер
+        pdf|fb2|epub|mobi|djvu|doc|docx|rtf|odt|py|sh|lua|c|cpp|h|conf|yaml|yml|json|md|txt|rc|rs|org)
+            clear
+            ~/.config/lf/readoc.sh "$f"
+            ;;
+        *)
+            if file --mime-type -b "$f" | grep -q '^text/'; then
+                clear
+                ~/.config/lf/readoc.sh "$f"
+            else
+                xdg-open "$f" >/dev/null 2>&1 &
+            fi
+            ;;
+    esac
+}}
+
+# Прив'язки
+map <right> smart_view
+map l smart_view
+map д smart_view
+
+# ---------- ЗОВНІШНЄ ВІДКРИТТЯ / РЕДАГУВАННЯ (enter) ----------
+cmd open_external ${{
+    if [ -d "$f" ]; then
+        exit
+    fi
+
+    ext="${f##*.}"
+    ext=$(printf "%s" "$ext" | tr '[:upper:]' '[:lower:]')
+    
+    case "$ext" in
         pdf|fb2|epub|mobi|djvu)
             zathura "$f" >/dev/null 2>&1 &
             ;;
-        py|sh|lua|c|cpp|h|conf|yaml|yml|json|md|txt|rc|rs)
+        py|sh|lua|c|cpp|h|conf|yaml|yml|json|md|txt|rc|rs|org)
             nvim "$f"
             ;;
-        csv|tsv)
-            vd "$f"
+        doc|docx|odt|rtf)
+            lowriter "$f" >/dev/null 2>&1 &
+            ;;
+        # Таблиці за натисканням Enter відкриваються в LibreOffice Calc
+        xls|xlsx|ods|csv|tsv)
+            localc "$f" >/dev/null 2>&1 &
             ;;
         *)
             if file --mime-type -b "$f" | grep -q '^text/'; then
@@ -151,12 +267,13 @@ cmd open_files ${{
             ;;
     esac
 }}
-map l open_files
-map д open_files
-map <right> open_files
-map <enter> open_files
 
+map <enter> open_external
+
+
+# --------- скільки хто бере місця ---------
 # ncdu в поточній директорії
+# 
 cmd ncdu ${{
     export NCDU_MODE="NCU" 
     export SHELL=/bin/bash 
@@ -168,7 +285,6 @@ map чс ncdu
 # открить изображение в gimp 
 cmd gimp_edit %{{ 
     if file --mime-type -b "$f" | grep -q '^image/'; then
-        xsetroot -name "    "
         gimp "$f" >/dev/null 2>&1 &
     else
         echo "Скасовано: тільки зображення"
@@ -228,9 +344,7 @@ cmd zip_pack %{{
     printf "Ім'я архіву (без .zip): "
     read name
     [ -z "$name" ] && exit
-
     7z a "$name.zip" $fx
-
     lf -remote "send $id reload"
 }}
 map xa zip_pack       # Створити архів з вибраних файлів
@@ -276,92 +390,112 @@ map / fzf_files
 
 
 ## =====================
-# Функція створення документа з шаблонів LibreOffice
+# Команда для конвертації вибраного .org файлу в PDF
+## =====================
+cmd org-to-pdf ${{
+    # %f — поточний вибраний файл у lf
+    filename="${f%.*}.pdf"
+    pandoc "$f" -f org -t plain | paps --font="DejaVu Sans Mono 9" | ps2pdf - "$filename"
+    lf -remote "send $id echo Converted $f to $filename"
+}}
+map CO org-to-pdf
+map СЩ org-to-pdf
+
+
+## =====================
+# Функція створення документа з шаблонів LibreOffice або Neovim
 # =====================
 cmd create_from_template ${{
-    TPL_DIR="$HOME/.config/libreoffice/4/user/template"
-    if [ ! -d "$TPL_DIR" ]; then
-        echo "Папка шаблонів не знайдена: $TPL_DIR"
-        read -n 1 -s -r -p "Натисніть будь-яку клавішу..."
-        exit 1
-    fi
+    LO_TPL_DIR="$HOME/.config/libreoffice/4/user/template"
+    NV_TPL_DIR="$HOME/.config/nvim/templates"
     
     export FZF_DEFAULT_OPTS="--layout=reverse --border=rounded --margin=5%,10% --height=80% --info=inline"
-    TEMPLATE=$(find "$TPL_DIR" -maxdepth 1 -type f \( -name "*.ott" -o -name "*.ots" -o -name "*.otp" \) -printf "%f\n" | fzf --header="Виберіть шаблон")
 
-    [ -z "$TEMPLATE" ] && exit 0
+    # Збираємо шаблони LibreOffice (якщо папка існує)
+    LO_LIST=""
+    if [ -d "$LO_TPL_DIR" ]; then
+        LO_LIST=$(find "$LO_TPL_DIR" -maxdepth 1 -type f \( -name "*.ott" -o -name "*.ots" -o -name "*.otp" \) -printf "[LibreOffice] %f\n")
+    fi
+
+    # Збираємо шаблони Neovim (якщо папка існує)
+    NV_LIST=""
+    if [ -d "$NV_TPL_DIR" ]; then
+        NV_LIST=$(find "$NV_TPL_DIR" -maxdepth 1 -type f -printf "[Neovim] %f\n")
+    fi
+
+    # Об'єднуємо списки та відправляємо у fzf
+    SELECTED=$(printf "%s\n%s" "${LO_LIST}" "${NV_LIST}" | sed '/^\s*$/d' | fzf --header="Виберіть шаблон")
+
+    [ -z "$SELECTED" ] && exit 0
+
+    # Розділяємо тип шаблону та власне ім'я файлу
+    TYPE=$(echo "$SELECTED" | awk '{print $1}')
+    TEMPLATE=$(echo "$SELECTED" | cut -d' ' -f2-)
+
     echo -n "Введіть ім'я нового файлу (без розширення): "
     read FILENAME
     [ -z "$FILENAME" ] && exit 0
- 
-    EXT="${TEMPLATE##*.}"
-    case "$EXT" in
-        ott) NEW_EXT="odt" ;;
-        ots) NEW_EXT="ods" ;;
-        otp) NEW_EXT="odp" ;;
-        *)   NEW_EXT="$EXT" ;;
+
+    case "$TYPE" in
+        "[LibreOffice]")
+            EXT="${TEMPLATE##*.}"
+            case "$EXT" in
+                ott) NEW_EXT="odt" ;;
+                ots) NEW_EXT="ods" ;;
+                otp) NEW_EXT="odp" ;;
+                *)   NEW_EXT="$EXT" ;;
+            esac
+
+            libreoffice --headless \
+                --convert-to "$NEW_EXT" \
+                --outdir "$(pwd)" \
+                "$LO_TPL_DIR/$TEMPLATE" >/dev/null 2>&1
+
+            SRC_NAME="${TEMPLATE%.*}.$NEW_EXT"
+            if [ -f "$SRC_NAME" ]; then
+                mv "$SRC_NAME" "$FILENAME.$NEW_EXT"
+            else
+                echo "Помилка конвертації LibreOffice"
+                read -n 1 -s -r -p "Натисніть будь-яку клавішу..."
+                exit 1
+            fi
+            ;;
+
+        "[Neovim]")
+            # Отримуємо оригінальне розширення шаблону nvim
+            NV_EXT="${TEMPLATE##*.}"
+            # Просто копіюємо шаблон у поточну папку з новим ім'ям
+            cp "$NV_TPL_DIR/$TEMPLATE" "$(pwd)/$FILENAME.$NV_EXT"
+            
+            # Відкриваємо створений файл у Neovim всередині lf
+            # (lf автоматично оновить екран після закриття редактора)
+            nvim "$FILENAME.$NV_EXT"
+            ;;
     esac
-
-    # Конвертация шаблона в обычный документ
-    libreoffice --headless \
-        --convert-to "$NEW_EXT" \
-        --outdir "$(pwd)" \
-        "$TPL_DIR/$TEMPLATE" >/dev/null 2>&1
-
-    SRC_NAME="${TEMPLATE%.*}.$NEW_EXT"
-    if [ -f "$SRC_NAME" ]; then
-        mv "$SRC_NAME" "$FILENAME.$NEW_EXT"
-    else
-        echo "Помилка конвертації"
-        read -n 1 -s -r -p "Натисніть будь-яку клавішу..."
-        exit 1
-    fi
         
     command lf -remote "send $id reload"
 }}
 map Ct create_from_template
 map Се create_from_template
 
-# ===================
-# об'єднання обраних файлів .docx
-# ===================
-cmd merge_docx %{{
-    output="merged_$(date +%d%m%Y_%H%M).docx"
-    
-    if ! command -v pandoc >/dev/null; then
-        echo "Помилка: pandoc не встановлено"
-        read -p "Натисніть Enter..."
-        exit 1
-    fi
-
-    xsetroot -name "    "
-    
-    pandoc $fx -o "$output"
-    
-    echo "Створено: $output"
-    read -p "Натисніть Enter..."
-}}
-map Cm merge_docx
-map Сь merge_docx
 
 # =====================
 #  конвертуємо зображення в розмір 700 по ширині
 # =====================
-cmd conv_img_700 ${{
+cmd resize_img_700 ${{
     mkdir -p resized
     find . -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" \) | while read -r img; do
         convert "$img" -resize 700x "resized/$img"
     done
 }}
-map C7 conv_img_700
-map С7 conv_img_700
+map C7 resize_img_700
+map С7 resize_img_700
 
 
 # =====================
 # конвертація docx в pdf
 # =====================
-cmd convert_to_pdf ${{
-    # Отримуємо назву файлу та його розширення (переводимо в нижній регістр для надійності)
+cmd doc_to_pdf ${{
     filename=$(basename "$f")
     extension="${filename##*.}"
     ext_lower=$(echo "$extension" | tr '[:upper:]' '[:lower:]')
@@ -369,7 +503,6 @@ cmd convert_to_pdf ${{
     case "$ext_lower" in
         docx|doc|odt)
             echo "Конвертація $filename у PDF..."
-            # Запуск LibreOffice у фоновому режимі
             libreoffice --headless --convert-to pdf "$f" &
             ;;
         *)
@@ -378,12 +511,9 @@ cmd convert_to_pdf ${{
     esac
 }}
 
-cmd convert_all_to_pdf ${{
+cmd all_doc_to_pdf ${{
     echo "Початок конвертації всіх документів у папці..."
-    
-    # Лічильник конвертованих файлів
     count=0
-    
     # Цикл по всіх файлах у поточній директорії
     for file in *; do
         # Перевіряємо, чи це дійсно файл, а не папка
@@ -395,7 +525,6 @@ cmd convert_all_to_pdf ${{
             case "$ext_lower" in
                 docx|doc|odt)
                     echo "Конвертується: $file"
-                    # Запускаємо LibreOffice (без знаку &, щоб файли оброблялися по черзі і не перевантажували процесор)
                     libreoffice --headless --convert-to pdf "$file"
                     count=$((count + 1))
                     ;;
@@ -410,12 +539,79 @@ cmd convert_all_to_pdf ${{
     fi
 }}
 
-map CQ convert_all_to_pdf
-map СЙ convert_all_to_pdf
+map CQ all_doc_to_pdf
+map СЙ all_doc_to_pdf
 
-map Cq convert_to_pdf
-map Сй convert_to_pdf
+map Cq doc_to_pdf
+map Сй doc_to_pdf
 
+
+# -------------------
+# Об'єднання ВСІХ знайдених файлів (docx, odt, doc, rtf) у формат .odt
+cmd merge_to_odt %{{
+    output="merged_$(date +%d%m%Y_%H%M).odt"
+    python3 ~/.local/bin/merge_docx.py "$output"
+    read -p "Натисніть Enter..."
+}}
+map Cm merge_to_odt
+map Сь merge_to_odt
+
+# ---- odt -> docx
+cmd odt_to_docx ${{
+    IFS='
+'
+    for f in $fx; do
+        libreoffice --headless --convert-to docx "$f"
+    done
+    printf "Конвертація завершена. Натисніть Enter..."
+    read -r _ 
+}}
+map Cd odt_to_docx
+map Св odt_to_docx
+
+# ---- стиснення PDF
+cmd shrink_pdf ${{
+    IFS='
+'
+    for f in $fx; do
+        shrink_pdf.sh "$f"
+    done
+    printf "Швидке стиснення PDF завершено. Натисніть Enter..."
+    read -r _ 
+}}
+map Cp shrink_pdf
+map Сз shrink_pdf
+
+# ---- максимальне стиснення PDF
+cmd shrink_pdf_max ${{
+    IFS='
+'
+    for f in $fx; do
+        pdf_jpg_700_pdf.sh "$f"
+    done
+    printf "Максимальне стиснення PDF завершено. Натисніть Enter..."
+    read -r _ 
+}}
+map CP shrink_pdf_max
+map СЗ shrink_pdf_max
+
+
+# =====================
+# Команда для конвертації doc файлів для системи :AWARDS53
+# =====================
+cmd word_to_awards ${{
+    # Перенаправляємо помилки, щоб бачити логи Pandoc
+    exec 2>&1
+    
+    # Змінна $fx містить шляхи до всіх виділених файлів через пробіл.
+    convert_to_AWARDS53.sh $fx
+    
+    echo ""
+    echo "Натисніть ENTER для повернення в lf..."
+    read -r _
+}}
+map CA word_to_awards
+map СФ word_to_awards
 
 
 # =====================
@@ -513,12 +709,6 @@ map p
 map pp :paste; clear; reload
 map зз :paste; clear; reload
 
-cmd edit-config ${{
-    $EDITOR ~/.config/lf/lfrc
-    lf -remote "send $id source ~/.config/lf/lfrc"
-}}
-map Cl edit-config
-map Сд
 
 # =====================
 #  SYMLINK
@@ -645,48 +835,6 @@ cmd trash_empty %{{
 }}
 map de trash_empty
 map ву trash_empty
-
-# -------- автоматизація ------------
-# ---- odt -> docx
-cmd convert_to_docx ${{
-    xsetroot -name "    "
-    IFS='
-'
-    for f in $fx; do
-        libreoffice --headless --convert-to docx "$f"
-    done
-    printf "Конвертація завершена. Натисніть Enter..."
-    read -r _ 
-}}
-map Cd convert_to_docx
-map Св convert_to_docx
-
-# ---- стиснення PDF
-cmd shrink_pdf ${{
-    IFS='
-'
-    for f in $fx; do
-        shrink_pdf.sh "$f"
-    done
-    printf "Швидке стиснення PDF завершено. Натисніть Enter..."
-    read -r _ 
-}}
-map Cp shrink_pdf
-map Сз shrink_pdf
-
-# ---- максимальне стиснення PDF
-cmd shrink_pdf_max ${{
-    xsetroot -name "    "
-    IFS='
-'
-    for f in $fx; do
-        pdf_jpg_700_pdf.sh "$f"
-    done
-    printf "Максимальне стиснення PDF завершено. Натисніть Enter..."
-    read -r _ 
-}}
-map CP shrink_pdf_max
-map СЗ shrink_pdf_max
 
 
 # =====================
