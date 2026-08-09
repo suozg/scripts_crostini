@@ -1,26 +1,42 @@
 #!/bin/bash
+# перемикання клавіатури
+initial_layout=$(cat /tmp/dwm_layout 2>/dev/null || echo "🗽US")
+if [[ "$current" == "us" ]]; then
+    xkb-switch -s ua
+    echo "🌻UA" > /tmp/dwm_layout
+    pkill -RTMIN+1 dwmblocks
+fi
 
-DIARY_PATH="$HOME/awards/vimwiki/diary"
-TODAY_FILE="$DIARY_PATH/$(date +%Y-%m-%d).md"
+# Шляхи до нової системи
+SCRIPT_PATH="$HOME/.local/bin/dwm"
+ORG_PATH="$HOME/awards/org"
+DIARY_FILE="$ORG_PATH/diary.org"
+FONT="monospace:size=12"
 
-choice=$(printf "Створити\nСьогодні\nВсі записи" | dmenu -p "Завдання:" -fn "monospace:size=12")
+# --- Функція для розумного виклику dmenu ---
+dmenu_cmd() {
+    local prompt="$1"
+    local opts=("-i" "-p" "$prompt" "-fn" "$FONT")
+    if [[ -f "$HOME/.lightmode" ]]; then
+        opts+=("-nb" "#eeeeee" "-nf" "#222222" "-sb" "#005577" "-sf" "#eeeeee")
+    fi
+    dmenu "${opts[@]}"
+}
+
+# Меню dmenu через нашу функцію
+choice=$(printf  "📝Створити\n📅Сьогодні\n📚Всі записи\n🔍Відкрити файл" | dmenu_cmd "Завдання:")
 
 case "$choice" in
-    "Створити")
-        ~/awards/scripts/dwm/my_tasks_add.sh
+    "📝Створити")
+        $SCRIPT_PATH/my_tasks_add.sh
         ;;
-
-    "Сьогодні")
-        # Відкриваємо саме сьогоднішній файл. Якщо його немає — створюємо з заголовком.
-        [ -f "$TODAY_FILE" ] || echo "# $(date +%Y-%m-%d)" > "$TODAY_FILE"
-        ~/awards/scripts/st -e nvim "$TODAY_FILE"
-        pkill -RTMIN+10 dwmblocks
+    "📅Сьогодні")
+        $HOME/.local/bin/st -e nvim --cmd "let g:session_autoload = 'no'" -c "lua require('orgmode').agenda:todos()"
         ;;
-
-    "Всі записи")
-        # Відкриваємо головний індекс Vimwiki, щоб бачити календар та інші нотатки
-        ~/awards/scripts/st -e nvim -c "VimwikiDiaryIndex"
-        pkill -RTMIN+10 dwmblocks
+    "📚Всі записи")
+        $HOME/.local/bin/st -e nvim  --cmd "let g:session_autoload = 'no'" -c "lua require('orgmode').agenda:agenda()"
         ;;
-
+    "🔍Відкрити файл")
+        $HOME/.local/bin/st -e nvim "$DIARY_FILE"
+        ;;
 esac

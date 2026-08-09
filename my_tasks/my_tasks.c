@@ -5,6 +5,7 @@
 #include <string.h>
 #include <time.h>
 #include <dirent.h>
+#include <unistd.h>
 #define DIARY_DIR "/home/alex320388/awards/vimwiki/diary/"
 
 int main() {
@@ -17,9 +18,6 @@ int main() {
 
     time_t now = time(NULL);
     struct tm *local_now = localtime(&now);
-    int current_year = local_now->tm_year;
-    int current_mon = local_now->tm_mon;
-    int current_mday = local_now->tm_mday;
 
     int count = 0;
     char msg_buffer[2048] = "";
@@ -42,7 +40,6 @@ int main() {
                 int h, m;
                 // Парсим формат "- HH:MM"
                 if (sscanf(line, "- %d:%d", &h, &m) == 2) {
-                    // 1. Счетчик: считаем вообще все найденные задачи
                     count++;
 
                     struct tm tm_event;
@@ -55,11 +52,19 @@ int main() {
                         time_t t_event = mktime(&tm_event);
                         double diff = difftime(t_event, now);
 
-                        // 2. Уведомление: если до события осталось от 0 до 2 часов (7200 сек)
+                        // Уведомление: если до события осталось от 0 до 2 часов (7200 сек)
                         if (diff >= 0 && diff <= 7200) {
                             line[strcspn(line, "\r\n")] = 0;
-                            strncat(msg_buffer, line + 2, 100); 
-                            strncat(msg_buffer, "\\n", 3);
+                            
+                            // Видаляємо символ '-' та пробіл на початку рядка
+                            char *task_text = line;
+                            while (*task_text == '-' || *task_text == ' ' || *task_text == '\t') {
+                                task_text++;
+                            }
+                            
+                            // Додаємо текст завдання
+                            strncat(msg_buffer, task_text, sizeof(msg_buffer) - strlen(msg_buffer) - 1);
+                            strncat(msg_buffer, "\\n", sizeof(msg_buffer) - strlen(msg_buffer) - 1);
                         }
                     }
                 }
@@ -72,13 +77,20 @@ int main() {
     // Вивід для статусбару
     printf("🗓️ %d\n\n", count);
 
-    // Виклик dunstify
     if (strlen(msg_buffer) > 0) {
         char command[4096];
-        // -r 555 замінює попереднє сповіщення з таким же ID
-        // -u critical робить його помітним
         snprintf(command, sizeof(command),
-                 "dunstify -r 555 -u critical '🗓️ Найближчі плани:' '%s'", msg_buffer);
+            "dunstify -r 555 -u critical \"🗓️ Найближчі плани:\" \"%s\"",
+            msg_buffer);
+        
+        char bus[128];
+        snprintf(bus, sizeof(bus),
+            "unix:path=/run/user/%d/bus", getuid());
+
+        setenv("DBUS_SESSION_BUS_ADDRESS", bus, 1);
+        char *disp = getenv("DISPLAY");
+        if (!disp) setenv("DISPLAY", ":0", 1);
+
         system(command);
     }
 
