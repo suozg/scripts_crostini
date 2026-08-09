@@ -1,61 +1,45 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
-DIARY_DIR="$HOME/awards/vimwiki/diary"
-INDEX_FILE="$DIARY_DIR/diary.md"
-mkdir -p "$DIARY_DIR"
+# 1. Зберігаємо поточну розкладку клавіатури на початку
+initial_layout=$(cat /tmp/dwm_layout 2>/dev/null || echo "🗽US")
 
-# 1. Отримуємо дату
-date_input=$(printf "" | dmenu -p "Дата (YYYY-MM-DD) або Enter:" -fn "monospace:size=12")
-[ -z "$date_input" ] && date_input=$(date +%Y-%m-%d)
+# Гарантовано відновлюємо вихідну розкладку при будь-якому виході (включно з помилками та крешами)
+trap 'if [[ "$initial_layout" == *"UA"* ]]; then xkb-switch -s ua; echo "🌻UA" > /tmp/dwm_layout; else xkb-switch -s us; echo "🗽US" > /tmp/dwm_layout; fi; pkill -RTMIN+1 dwmblocks' EXIT
 
-FILE="$DIARY_DIR/$date_input.md"
-NEW_FILE=false
+# Шлях до основного файлу нотаток
+ORG_FILE="$HOME/awards/org/diary.org"
+mkdir -p "$(dirname "$ORG_FILE")"
+FONT="monospace:size=12"
 
-# 2. Якщо файлу дня ще немає — створюємо його
-if [ ! -f "$FILE" ]; then
-    echo "# $date_input" > "$FILE"
-    NEW_FILE=true
-fi
+# --- Функція для розумного виклику dmenu ---
+dmenu_cmd() {
+    local prompt="$1"
+    local opts=("-i" "-p" "$prompt" "-fn" "$FONT")
+    if [[ -f "$HOME/.lightmode" ]]; then
+        opts+=("-nb" "#eeeeee" "-nf" "#222222" "-sb" "#005577" "-sf" "#eeeeee")
+    fi
+    dmenu "${opts[@]}"
+}
 
-# 3. Отримуємо дані завдання
-time_input=$(printf "" | dmenu -p "Час (HH:MM):" -fn "monospace:size=12")
+# 2. Отримуємо поточну дату за замовчуванням та підставляємо її в рядок введення dmenu
+default_date=$(date +%Y-%m-%d)
+date_input=$(echo "$default_date" | dmenu_cmd "📅 Дата (YYYY-MM-DD):")
+[ -z "$date_input" ] && exit 0
+
+time_input=$(printf "" | dmenu_cmd "🕒 Час (HH:MM):")
 [ -z "$time_input" ] && exit 0
-text_input=$(printf "" | dmenu -p "Задача:" -fn "monospace:size=12")
-[ -z "$text_input" ] && exit 0
 
-# 4. Записуємо задачу
-echo "- $time_input $text_input" >> "$FILE"
+task_input=$(printf "" | dmenu_cmd "📝 Що зробити?:")
+[ -z "$task_input" ] && exit 0
 
-# 5. ОНОВЛЕННЯ diary.md (Індексу)
-if [ "$NEW_FILE" = true ] || [ ! -f "$INDEX_FILE" ]; then
-    [ -f "$INDEX_FILE" ] || echo "# Diary" > "$INDEX_FILE"
+# Формуємо правильний Org-штамп
+day_name=$(date -d "$date_input" "+%a")
 
-    # 1. Тимчасовий файл для чистого списку
-    tmp_index=$(mktemp)
-    
-    # 2. Записуємо "шапку"
-    echo "# Diary" > "$tmp_index"
-    echo "" >> "$tmp_index"
-    
-    # 3. Додаємо нову дату до поточного файлу, щоб вона теж потрапила в обробку
-    echo "$date_input" >> "$INDEX_FILE"
+cat <<EOF >> "$ORG_FILE"
 
-    # 4. ОЧИЩЕННЯ ТА СОРТУВАННЯ:
-    # - Витягуємо ТІЛЬКИ цифри дати (ігноруємо дужки, зірочки, сміття)
-    # - Сортуємо у зворотному порядку, видаляємо дублікати
-    # - Формуємо чистий рядок: * [[YYYY-MM-DD]]
-    grep -oE "[0-9]{4}-[0-9]{2}-[0-9]{2}" "$INDEX_FILE" | \
-    sort -ur | \
-    while read -r d; do
-        echo "* [[$d]]" >> "$tmp_index"
-    done
+* TODO $task_input
+  SCHEDULED: <$date_input $day_name $time_input>
+EOF
 
-    # 5. Замінюємо старий "брудний" файл новим і чистим
-    mv "$tmp_index" "$INDEX_FILE"
-fi
-
-# 6. Фіналізація
+dunstify -r 556 "Org-mode" "Завдання додано"
 pkill -RTMIN+10 dwmblocks || true
-dunstify -u low "Vimwiki" "Запис додано в $date_input та оновлено індекс."
-
