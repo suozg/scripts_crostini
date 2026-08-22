@@ -12,6 +12,16 @@ export EDITOR='nvim'
 export VISUAL='nvim'
 export PATH="$HOME/.local/bin:$PATH"
 
+alias micro='nvim'
+alias nano='nvim'
+alias vi='nvim'
+alias vim='nvim'
+alias localc='localc --nologo --nofirststartwizard'
+alias lowriter='lowriter --nologo --nofirststartwizard'
+alias lodraw_gen='SAL_USE_VCLPLUGIN=gen lodraw'
+alias loimpress='loimpress --nologo --nofirststartwizard'
+
+# -- тригер для интерактивного режима. все что до - для ПРОГРАММ, после - для ЧЕЛОВЕКА в терминале
 case $- in
     *i*) ;;
       *) return;;
@@ -56,14 +66,6 @@ fi
 alias rm='rm -i'
 alias cp='cp -i'
 alias mv='mv -i'
-alias micro='nvim'
-alias nano='nvim'
-alias vi='nvim'
-alias vim='nvim'
-alias lodraw_gen='SAL_USE_VCLPLUGIN=gen lodraw'
-alias lowriter='lowriter --nologo --nofirststartwizard'
-alias loimpress='loimpress --nologo --nofirststartwizard'
-alias localc='localc --nologo --nofirststartwizard'
 alias trash-clean='trash-empty && pkill -RTMIN+2 dwmblocks'
 alias v='nvim $(rg --files --hidden 2>/dev/null | fzf --preview "batcat --color=always --style=numbers --line-range :500 {}")'
 
