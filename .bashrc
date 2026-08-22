@@ -97,12 +97,22 @@ fi
 # 2. Скасовуємо стандартний біндінг для Alt+C (\ec)
 bind -r '\ec'
 
-# 3. Глобальна палітра кольорів Gruvbox для всіх вікон FZF
-export FZF_DEFAULT_OPTS="
-  --color=bg+:#3c3836,bg:#282828,spinner:#8ec07c,hl:#928374 \
-  --color=fg:#ebdbb2,header:#928374,info:#8ec07c,pointer:#fb4934 \
-  --color=marker:#fabd2f,fg+:#ebdbb2,prompt:#fb4934,hl+:#fb4934 \
-  --color=border:#7c6f64,header:#fabd2f"
+# динамічна тема FZF (GRUVBOX)
+if [ -f "$HOME/.lightmode" ]; then
+    # --- СВІТЛА ТЕМА GRUVBOX ---
+    export FZF_DEFAULT_OPTS="
+      --color=bg+:#ebdbb2,bg:#fbf1c7,spinner:#427b58,hl:#7c6f64 \
+      --color=fg:#3c3836,header:#7c6f64,info:#427b58,pointer:#9d0006 \
+      --color=marker:#b57614,fg+:#3c3836,prompt:#9d0006,hl+:#9d0006 \
+      --color=border:#bdae93,header:#b57614"
+else
+    # --- ТЕМНА ТЕМА GRUVBOX ---
+    export FZF_DEFAULT_OPTS="
+      --color=bg+:#3c3836,bg:#282828,spinner:#8ec07c,hl:#928374 \
+      --color=fg:#ebdbb2,header:#928374,info:#8ec07c,pointer:#fb4934 \
+      --color=marker:#fabd2f,fg+:#ebdbb2,prompt:#fb4934,hl+:#fb4934 \
+      --color=border:#7c6f64,header:#fabd2f"
+fi
 
 # Кастомізація Ctrl + T (Пошук файлів)
 export FZF_CTRL_T_OPTS="
@@ -165,9 +175,12 @@ function l() {
         fi
     fi
 }
+alias д=l
 
 alias rm_fuse_files='find . -name ".fuse_hidden*" -delete'
 alias ncdu='NCDU_MODE="NCU" SHELL=/bin/bash ncdu'
+
+alias copy_card='rclone sync "/mnt/chromeos/removable/SD Card/" "/mnt/chromeos/removable/UNTITLED/" --exclude ".fuse_hidden*" --exclude "*.~tmp*" --delete-before --stats "1s" -P --stats-one-line --tpslimit 8 --drive-chunk-size 64M --fast-list'
 
 eval "$(zoxide init bash)"
 eval "$(starship init bash)"
