@@ -1,0 +1,9 @@
+[Unit]
+Description=Run set-theme-based-on-time.sh
+
+[Service]
+Type=oneshot
+Environment=DISPLAY=:20
+Environment=XAUTHORITY=/home/alex320388/.Xauthority
+ExecStart=/home/alex320388/awards/scripts/set-theme-based-on-time.sh start
+
