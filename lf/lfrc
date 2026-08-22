@@ -252,11 +252,10 @@ cmd open_external ${{
             nvim "$f"
             ;;
         doc|docx|odt|rtf)
-            lowriter "$f" >/dev/null 2>&1 &
+            lowriter --nologo --nofirststartwizard "$f" >/dev/null 2>&1 &
             ;;
-        # Таблиці за натисканням Enter відкриваються в LibreOffice Calc
         xls|xlsx|ods|csv|tsv)
-            localc "$f" >/dev/null 2>&1 &
+            localc --nologo --nofirststartwizard "$f" >/dev/null 2>&1 &
             ;;
         *)
             if file --mime-type -b "$f" | grep -q '^text/'; then
