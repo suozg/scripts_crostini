@@ -1,0 +1,868 @@
+# =====================
+# LF CONFIG (STABLE + TRASH-CLI)
+# =====================
+
+# ---------- BASIC ----------
+set previewer ~/.config/lf/pv.sh
+set timefmt "2006-01-02 15:04"
+set info size:time
+set ratios 9:8
+set scrolloff 5
+set ifs "\n"
+set dircounts
+#set drawbox
+set number
+set wrapscroll
+set watch
+
+# Визуальные индикаторы
+set copyfmt  "\033[7;33m"  # инвертированный желтый для скопированных
+set cutfmt   "\033[7;31m"  # инвертированный красный для вырезанных  
+set selectfmt "\033[7;35m" # инвертированный фиолетовый для выбранных
+set numberfmt "\033[90m"   # серые номера (не отвлекают)
+
+# ---------- INFO ------------
+map i
+map zn
+map ii set info
+map шш set info
+
+map zh
+map ih set hidden!
+map шр set hidden!
+
+map za
+map ia set info size:time
+map шф set info:time 
+
+map zs
+map is set info size
+map ші set info size
+
+map zt
+map it set info time
+map ше set info time
+
+
+# ---------- RESET ----------
+cmd reset-state :{{
+    reload
+    unselect
+    clear
+}}
+map <esc> reset-state
+map u reset-state
+map г reset-state
+map к reset-state
+map <c-r> reset-state
+
+# ---------- EXIT ----------
+map w
+map q quit
+map й quit
+
+# ---------- MARKS ----------
+map є mark-load
+map е tag-toggle
+
+# ------- SELECT -------------
+map <c-s> push :glob-select<space>
+
+map м invert
+
+# ---------- QUICK DIRS ----------
+map gh cd ~/WORK
+map пр cd ~/WORK
+
+map gs cd /mnt/chromeos/GoogleDrive/MyDrive
+map пі cd /mnt/chromeos/GoogleDrive/MyDrive
+
+map gd cd /mnt/chromeos/removable
+map пв cd /mnt/chromeos/removable
+
+# ---------- SUSPEND ----------
+map Z $kill -STOP $PPID
+map Я $kill -STOP $PPID
+
+# ------ zoxide ----------
+cmd zoxide_jump ${{
+    res="$(zoxide query -i)"
+    if [ -n "$res" ]; then
+        command lf -remote "send $id cd \"$res\""
+    fi
+}}
+map zj zoxide_jump
+map яо zoxide_jump
+
+cmd zoxide_remove ${{
+    export FZF_DEFAULT_OPTS="--layout=reverse --border=rounded --margin=5%,10% --height=80% --info=inline"
+    target="$(zoxide query -l | sed 's/^ *[0-9]* *//' | fzf --prompt='Прибрати з zoxide > ')"
+    if [ -n "$target" ]; then
+        zoxide remove "$target"
+    fi
+}}
+map zr zoxide_remove
+map як zoxide_remove
+
+
+# ---------------------------
+# Монтування шифрованої NOW на SD Card
+cmd mount-now %{{
+    fusermount -u -z "$HOME/.now_unencrypted" 2>/dev/null || true
+
+    if [ -d "/mnt/chromeos/removable/SD Card/now" ]; then
+        rclone mount --crypt-remote "/mnt/chromeos/removable/SD Card/now" now_crypt: "$HOME/.now_unencrypted" --dir-perms 0777 --daemon
+        pkill -RTMIN+2 dwmblocks 2>/dev/null || true
+        lf -remote "send $id reload"
+        lf -remote "send $id echo 'NOW на SD Card успішно змонтована!'"
+    else
+        lf -remote "send $id echo 'Помилка: SD-картку не знайдено!'"
+    fi
+}}
+map gmn mount-now
+map пьт mount-now
+
+# (unmount) — безпечно відмонтовує папку
+cmd unmount-now %{{
+    # Перевірка: якщо йде процес копіювання — забороняємо відмонтування
+    if pgrep -x "cp" >/dev/null || pgrep -x "rsync" >/dev/null; then
+        lf -remote "send $id echo '⚠️ ПОМИЛКА: Не можна відмонтувати під час копіювання!'"
+        exit 1
+    fi
+
+    fusermount -u -z "$HOME/.now_unencrypted" 2>/dev/null || true
+    
+    # Оновлюємо статус-бар dwmblocks та перезавантажуємо lf
+    pkill -RTMIN+2 dwmblocks 2>/dev/null || true
+    lf -remote "send $id reload"
+    lf -remote "send $id echo 'NOW на SD Card відмонтована'"
+}}
+map gun unmount-now
+map пгт unmount-now
+
+
+# ---------------------------
+# Монтування шифрованої OLD на SD Card
+cmd mount-old %{{
+    fusermount -u -z "$HOME/.old_unencrypted" 2>/dev/null || true
+
+    if [ -d "/mnt/chromeos/removable/SD Card/old" ]; then
+        rclone mount --crypt-remote "/mnt/chromeos/removable/SD Card/old" old_crypt: "$HOME/.old_unencrypted" --dir-perms 0777 --daemon
+        pkill -RTMIN+2 dwmblocks 2>/dev/null || true
+        lf -remote "send $id reload"
+        lf -remote "send $id echo 'OLD на SD Card успішно змонтована!'"
+    else
+        lf -remote "send $id echo 'Помилка: SD-картку не знайдено!'"
+    fi
+}}
+map gmo mount-old
+map пьщ mount-old
+
+# (unmount) — безпечно відмонтовує папку
+cmd unmount-old %{{
+    # Перевірка: якщо йде процес копіювання — забороняємо відмонтування
+    if pgrep -x "cp" >/dev/null || pgrep -x "rsync" >/dev/null; then
+        lf -remote "send $id echo '⚠️ ПОМИЛКА: Не можна відмонтувати під час копіювання!'"
+        exit 1
+    fi
+
+    fusermount -u -z "$HOME/.old_unencrypted" 2>/dev/null || true
+    
+    # Оновлюємо статус-бар dwmblocks та перезавантажуємо lf
+    pkill -RTMIN+2 dwmblocks 2>/dev/null || true
+    lf -remote "send $id reload"
+    lf -remote "send $id echo 'OLD на SD Card відмонтована'"
+}}
+map guo unmount-old
+map пгщ unmount-old
+
+
+# ---------- FULL PAGER VIEW ----------
+cmd view_doc ${{
+    clear
+    ~/.config/lf/readoc.sh "$f"
+}}
+map I view_doc
+map Ш view_doc
+
+# ---------- ПЕРЕГЛЯД ФАЙЛІВ (Right / l / д) ----------
+cmd smart_view ${{
+    if [ -d "$f" ]; then
+        zoxide add "$PWD/$f" 2>/dev/null
+        command lf -remote "send $id cd \"$f\""
+        exit
+    fi
+
+    ext="${f##*.}"
+    ext=$(printf "%s" "$ext" | tr '[:upper:]' '[:lower:]')
+
+    case "$ext" in
+        # Таблиці за стрілкою вправо відкриваємо у VisiData (vd)
+        xls|xlsx|ods|csv|tsv)
+            vd "$f"
+            ;;
+        zip|rar|7z|tar|gz|bz2|tgz)
+            lf -remote "send $id extract"
+            ;;
+        gpg)
+            clear
+            out="${f%.gpg}"
+            if gpg --decrypt -o "$out" "$f"; then
+                command lf -remote "send $id reload"
+            else
+                rm -f "$out"
+            fi
+            read -r _
+            ;;
+        # Документи, PDF, коди, тексти — у пейджер
+        pdf|fb2|epub|mobi|djvu|doc|docx|rtf|odt|py|sh|lua|c|cpp|h|conf|yaml|yml|json|md|txt|rc|rs|org)
+            clear
+            ~/.config/lf/readoc.sh "$f"
+            ;;
+        *)
+            if file --mime-type -b "$f" | grep -q '^text/'; then
+                clear
+                ~/.config/lf/readoc.sh "$f"
+            else
+                xdg-open "$f" >/dev/null 2>&1 &
+            fi
+            ;;
+    esac
+}}
+
+# Прив'язки
+map <right> smart_view
+map l smart_view
+map д smart_view
+
+# ---------- ЗОВНІШНЄ ВІДКРИТТЯ / РЕДАГУВАННЯ (enter) ----------
+cmd open_external ${{
+    if [ -d "$f" ]; then
+        exit
+    fi
+
+    ext="${f##*.}"
+    ext=$(printf "%s" "$ext" | tr '[:upper:]' '[:lower:]')
+    
+    case "$ext" in
+        pdf|fb2|epub|mobi|djvu)
+            zathura "$f" >/dev/null 2>&1 &
+            ;;
+        py|sh|lua|c|cpp|h|conf|yaml|yml|json|md|txt|rc|rs|org)
+            nvim "$f"
+            ;;
+        doc|docx|odt|rtf)
+            lowriter "$f" >/dev/null 2>&1 &
+            ;;
+        # Таблиці за натисканням Enter відкриваються в LibreOffice Calc
+        xls|xlsx|ods|csv|tsv)
+            localc "$f" >/dev/null 2>&1 &
+            ;;
+        *)
+            if file --mime-type -b "$f" | grep -q '^text/'; then
+                nvim "$f"
+            else
+                xdg-open "$f" >/dev/null 2>&1 &
+            fi
+            ;;
+    esac
+}}
+
+map <enter> open_external
+
+
+# --------- скільки хто бере місця ---------
+# ncdu в поточній директорії
+# 
+cmd ncdu ${{
+    export NCDU_MODE="NCU" 
+    export SHELL=/bin/bash 
+    ncdu
+}}
+map xc ncdu
+map чс ncdu
+
+# открить изображение в gimp 
+cmd gimp_edit %{{ 
+    if file --mime-type -b "$f" | grep -q '^image/'; then
+        gimp "$f" >/dev/null 2>&1 &
+    else
+        echo "Скасовано: тільки зображення"
+    fi
+}}
+map xg gimp_edit
+map чп gimp_edit
+
+# =====================
+cmd extract %{{
+    set -f
+    extract_dir=""
+    case "$f" in
+        *.tar.bz2) tar xjf "$f" ;;
+        *.tar.gz)  tar xzf "$f" ;;
+        *.tbz2)     tar xjf "$f" ;;
+        *.tgz)      tar xzf "$f" ;;
+        *.tar)      tar xf "$f" ;;
+        *.bz2)      bunzip2 "$f" ;;
+        *.gz)       gunzip "$f" ;;
+        *.zip)
+            # Пробуем bsdtar сначала (он лучше обрабатывает такие случаи)
+            if command -v bsdtar >/dev/null 2>&1; then
+                bsdtar -xf "$f"
+            else
+                # Если bsdtar нет, используем 7z с последующей обработкой
+                7z x "$f"
+                # Исправляем проблемные имена
+                find . -name '*\\*' -exec bash -c '
+                    for file; do
+                        new=$(echo "$file" | sed "s/\\\\/\\//g")
+                        mkdir -p "$(dirname "$new")"
+                        mv -v "$file" "$new"
+                    done
+                ' _ {} +
+            fi
+            ;;
+        *.rar)      unrar x "$f" ;;
+        *.7z)       7z x "$f" ;;
+        *.Z)        uncompress "$f" ;;
+        *) echo "Невідомий формат архіву" ;;
+    esac
+
+    lf -remote "send $id reload"
+}}
+map xe extract
+map чу extract
+
+# Створення архіву з вибраних файлів
+cmd zip_pack %{{
+    if [ -z "$fx" ]; then
+        echo "Файли не вибрані"
+        read -n 1 -s -r -p "Натисніть будь-яку клавішу..."
+        exit
+    fi
+
+    printf "Ім'я архіву (без .zip): "
+    read name
+    [ -z "$name" ] && exit
+    7z a "$name.zip" $fx
+    lf -remote "send $id reload"
+}}
+map xa zip_pack       # Створити архів з вибраних файлів
+map чф zip_pack
+
+# Конвертація архіву в інший формат
+cmd arch_repack %{{
+    printf "Новий формат (zip, 7z, tar.gz): "
+    read format
+    [ -z "$format" ] && exit
+
+    newname="${f%.*}.$format"
+    7z x "$f" -o/tmp/lf_repack_tmp >/dev/null &&
+    7z a "$newname" /tmp/lf_repack_tmp/* &&
+    rm -rf /tmp/lf_repack_tmp
+
+    lf -remote "send $id reload"
+}}
+map xr arch_repack     # Перепакувати в інший формат
+map чк arch_repack
+
+
+# =====================
+# FZF JUMP
+# =====================
+cmd fzf_dirs ${{
+    export FZF_DEFAULT_OPTS="--layout=reverse --border=rounded --margin=5%,10% --height=80% --info=inline"
+    fd --type d --hidden --exclude .git . | fzf --prompt="🔍 Пошук каталогу > " | while read -r res; do
+        [ -n "$res" ] && lf -remote "send $id cd \"$res\""
+    done
+}}
+map , fzf_dirs
+map ? fzf_dirs
+
+cmd fzf_files ${{
+    export FZF_DEFAULT_OPTS="--layout=reverse --border=rounded --margin=5%,10% --height=80% --info=inline"
+    fd --type f --hidden --exclude .git . | fzf --prompt="📄 Пошук файлів > " | while read -r res; do
+        [ -n "$res" ] && lf -remote "send $id select \"$res\""
+    done
+}}
+map . fzf_files
+map / fzf_files
+
+
+## =====================
+# Команда для конвертації вибраного .org файлу в PDF
+## =====================
+cmd org-to-pdf ${{
+    # %f — поточний вибраний файл у lf
+    filename="${f%.*}.pdf"
+    pandoc "$f" -f org -t plain | paps --font="DejaVu Sans Mono 9" | ps2pdf - "$filename"
+    lf -remote "send $id echo Converted $f to $filename"
+}}
+map CO org-to-pdf
+map СЩ org-to-pdf
+
+
+## =====================
+# Функція створення документа з шаблонів LibreOffice або Neovim
+# =====================
+cmd create_from_template ${{
+    LO_TPL_DIR="$HOME/.config/libreoffice/4/user/template"
+    NV_TPL_DIR="$HOME/.config/nvim/templates"
+    
+    export FZF_DEFAULT_OPTS="--layout=reverse --border=rounded --margin=5%,10% --height=80% --info=inline"
+
+    # Збираємо шаблони LibreOffice (якщо папка існує)
+    LO_LIST=""
+    if [ -d "$LO_TPL_DIR" ]; then
+        LO_LIST=$(find "$LO_TPL_DIR" -maxdepth 1 -type f \( -name "*.ott" -o -name "*.ots" -o -name "*.otp" \) -printf "[LibreOffice] %f\n")
+    fi
+
+    # Збираємо шаблони Neovim (якщо папка існує)
+    NV_LIST=""
+    if [ -d "$NV_TPL_DIR" ]; then
+        NV_LIST=$(find "$NV_TPL_DIR" -maxdepth 1 -type f -printf "[Neovim] %f\n")
+    fi
+
+    # Об'єднуємо списки та відправляємо у fzf
+    SELECTED=$(printf "%s\n%s" "${LO_LIST}" "${NV_LIST}" | sed '/^\s*$/d' | fzf --header="Виберіть шаблон")
+
+    [ -z "$SELECTED" ] && exit 0
+
+    # Розділяємо тип шаблону та власне ім'я файлу
+    TYPE=$(echo "$SELECTED" | awk '{print $1}')
+    TEMPLATE=$(echo "$SELECTED" | cut -d' ' -f2-)
+
+    echo -n "Введіть ім'я нового файлу (без розширення): "
+    read FILENAME
+    [ -z "$FILENAME" ] && exit 0
+
+    case "$TYPE" in
+        "[LibreOffice]")
+            EXT="${TEMPLATE##*.}"
+            case "$EXT" in
+                ott) NEW_EXT="odt" ;;
+                ots) NEW_EXT="ods" ;;
+                otp) NEW_EXT="odp" ;;
+                *)   NEW_EXT="$EXT" ;;
+            esac
+
+            libreoffice --headless \
+                --convert-to "$NEW_EXT" \
+                --outdir "$(pwd)" \
+                "$LO_TPL_DIR/$TEMPLATE" >/dev/null 2>&1
+
+            SRC_NAME="${TEMPLATE%.*}.$NEW_EXT"
+            if [ -f "$SRC_NAME" ]; then
+                mv "$SRC_NAME" "$FILENAME.$NEW_EXT"
+            else
+                echo "Помилка конвертації LibreOffice"
+                read -n 1 -s -r -p "Натисніть будь-яку клавішу..."
+                exit 1
+            fi
+            ;;
+
+        "[Neovim]")
+            # Отримуємо оригінальне розширення шаблону nvim
+            NV_EXT="${TEMPLATE##*.}"
+            # Просто копіюємо шаблон у поточну папку з новим ім'ям
+            cp "$NV_TPL_DIR/$TEMPLATE" "$(pwd)/$FILENAME.$NV_EXT"
+            
+            # Відкриваємо створений файл у Neovim всередині lf
+            # (lf автоматично оновить екран після закриття редактора)
+            nvim "$FILENAME.$NV_EXT"
+            ;;
+    esac
+        
+    command lf -remote "send $id reload"
+}}
+map Ct create_from_template
+map Се create_from_template
+
+
+# =====================
+#  конвертуємо зображення в розмір 700 по ширині
+# =====================
+cmd resize_img_700 ${{
+    mkdir -p resized
+    find . -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" \) | while read -r img; do
+        convert "$img" -resize 700x "resized/$img"
+    done
+}}
+map C7 resize_img_700
+map С7 resize_img_700
+
+
+# =====================
+# конвертація docx в pdf
+# =====================
+cmd doc_to_pdf ${{
+    filename=$(basename "$f")
+    extension="${filename##*.}"
+    ext_lower=$(echo "$extension" | tr '[:upper:]' '[:lower:]')
+    
+    case "$ext_lower" in
+        docx|doc|odt)
+            echo "Конвертація $filename у PDF..."
+            libreoffice --headless --convert-to pdf "$f" &
+            ;;
+        *)
+            echo "Помилка: цей формат ($extension) не підтримується для конвертації!"
+            ;;
+    esac
+}}
+
+cmd all_doc_to_pdf ${{
+    echo "Початок конвертації всіх документів у папці..."
+    count=0
+    # Цикл по всіх файлах у поточній директорії
+    for file in *; do
+        # Перевіряємо, чи це дійсно файл, а не папка
+        if [ -f "$file" ]; then
+            # Отримуємо розширення в нижньому регістрі
+            ext="${file##*.}"
+            ext_lower=$(echo "$ext" | tr '[:upper:]' '[:lower:]')
+            
+            case "$ext_lower" in
+                docx|doc|odt)
+                    echo "Конвертується: $file"
+                    libreoffice --headless --convert-to pdf "$file"
+                    count=$((count + 1))
+                    ;;
+            esac
+        fi
+    done
+    
+    if [ "$count" -gt 0 ]; then
+        echo "Готово! Успішно конвертовано файлів: $count"
+    else
+        echo "У цій папці не знайдено файлів docx, doc або odt."
+    fi
+}}
+
+map CQ all_doc_to_pdf
+map СЙ all_doc_to_pdf
+
+map Cq doc_to_pdf
+map Сй doc_to_pdf
+
+
+# -------------------
+# Об'єднання ВСІХ знайдених файлів (docx, odt, doc, rtf) у формат .odt
+cmd merge_to_odt %{{
+    output="merged_$(date +%d%m%Y_%H%M).odt"
+    python3 ~/.local/bin/merge_docx.py "$output"
+    read -p "Натисніть Enter..."
+}}
+map Cm merge_to_odt
+map Сь merge_to_odt
+
+# ---- odt -> docx
+cmd odt_to_docx ${{
+    IFS='
+'
+    for f in $fx; do
+        libreoffice --headless --convert-to docx "$f"
+    done
+    printf "Конвертація завершена. Натисніть Enter..."
+    read -r _ 
+}}
+map Cd odt_to_docx
+map Св odt_to_docx
+
+# ---- стиснення PDF
+cmd shrink_pdf ${{
+    IFS='
+'
+    for f in $fx; do
+        shrink_pdf.sh "$f"
+    done
+    printf "Швидке стиснення PDF завершено. Натисніть Enter..."
+    read -r _ 
+}}
+map Cp shrink_pdf
+map Сз shrink_pdf
+
+# ---- максимальне стиснення PDF
+cmd shrink_pdf_max ${{
+    IFS='
+'
+    for f in $fx; do
+        pdf_jpg_700_pdf.sh "$f"
+    done
+    printf "Максимальне стиснення PDF завершено. Натисніть Enter..."
+    read -r _ 
+}}
+map CP shrink_pdf_max
+map СЗ shrink_pdf_max
+
+
+# =====================
+# Команда для конвертації doc файлів для системи :AWARDS53
+# =====================
+cmd word_to_awards ${{
+    # Перенаправляємо помилки, щоб бачити логи Pandoc
+    exec 2>&1
+    
+    # Змінна $fx містить шляхи до всіх виділених файлів через пробіл.
+    convert_to_AWARDS53.sh $fx
+    
+    echo ""
+    echo "Натисніть ENTER для повернення в lf..."
+    read -r _
+}}
+map CA word_to_awards
+map СФ word_to_awards
+
+
+# =====================
+# Конвертація в CSV (перший аркуш)
+# =====================
+cmd conv_xls2csv ${{
+    for f in $fx; do
+        # 44 означає кому як роздільник полів, 76 — кодування UTF-8
+        libreoffice --headless --convert-to csv:"Text - txt - csv (StarCalc)":44,76,34,1 --outdir "$(dirname "$f")" "$f"
+    done
+    lf -remote "send $id reload"
+}}
+map CX conv_xls2csv
+map СЧ conv_xls2csv 
+
+
+# =====================
+# RENAME
+# =====================
+map r
+cmd rename-append ${{
+    name=$(basename "$f")
+    new=$(bash -c "read -e -p 'Rename: ' -i '$name' v && echo \"\$v\"")
+    [ -n "$new" ] && [ "$new" != "$name" ] && mv -v -- "$name" "$new"
+}}
+map a rename-append
+map ф rename-append
+
+# =====================
+# BULK RENAME
+# =====================
+cmd bulk_rename ${{
+    tmp_old=$(mktemp)
+    tmp_new=$(mktemp)
+    trap 'rm -f "$tmp_old" "$tmp_new"' EXIT
+
+    if [ -n "$fx" ]; then
+        echo "$fx" | tr ':' '\n' > "$tmp_old"
+    else
+        printf "%s\n" "$PWD"/* > "$tmp_old"
+    fi
+
+    while IFS= read -r line; do
+        basename "$line"
+    done < "$tmp_old" > "$tmp_new"
+
+    ${EDITOR:-vi} "$tmp_new"
+
+    old_cnt=$(wc -l < "$tmp_old")
+    new_cnt=$(wc -l < "$tmp_new")
+
+    if [ "$old_cnt" -eq "$new_cnt" ]; then
+        exec 3<"$tmp_old"
+        exec 4<"$tmp_new"
+
+        while IFS= read -r old_path <&3 && IFS= read -r new_name <&4; do
+            dir=$(dirname "$old_path")
+            old_name=$(basename "$old_path")
+            
+            if [ "$old_name" != "$new_name" ] && [ -n "$new_name" ]; then
+                mv -v "$old_path" "$dir/$new_name"
+            fi
+        done
+        exec 3<&-
+        exec 4<&-
+    else
+        echo "Помилка: Кількість рядків змінилася! Скасування."
+        sleep 2
+    fi
+
+    command lf -remote "send $id reload"
+}}
+map A bulk_rename
+map Ф bulk_rename
+
+# =====================
+# CREATE
+# =====================
+cmd create_file %{{
+    printf "Новий файл: "
+    read name
+    touch "$name"
+    command lf -remote "send $id reload"
+}}
+map N create_file
+map Т create_file
+
+cmd create_dir %{{
+    printf "Новий каталог: "
+    read name
+    mkdir -p "$name"
+    command lf -remote "send $id reload"
+}}
+map n create_dir
+map т create_dir
+
+# =====================
+#  CUT / PASTE
+# =====================
+map y
+map yy copy
+map нн copy
+
+map d
+map dd cut
+map вв cut
+
+map p
+map pp :paste; clear; reload
+map зз :paste; clear; reload
+
+
+# =====================
+#  SYMLINK
+# =====================
+cmd paste_link %{{
+    REPLYFILE="$HOME/.local/share/lf/files"
+    if [ $(wc -l < "$REPLYFILE") -le 1 ]; then
+        return 0
+    fi
+    tail -n +2 "$REPLYFILE" | xargs -I {} ln -sr "{}" .
+    command lf -remote "send $id load"
+}}
+map pl paste_link
+map зд paste_link
+
+# =====================
+# DELETE FOREVER
+# =====================
+cmd delete_forever ${{
+    IFS='
+'
+    echo "Вибрані файли: $fx"
+    echo -n "ВИДАЛИТИ НАЗАВЖДИ? [y/N] "
+    read ans
+    case "$ans" in
+        y|Y|н|Н)
+            for f in $fx; do
+                rm -rf "$f"
+            done
+            echo "Видалено остаточно"
+            ;;
+        *)
+            echo "Скасовано"
+            ;;
+    esac
+    command lf -remote "send $id reload"
+}}
+map dD delete_forever
+map вВ delete_forever
+
+
+# =====================
+# TRASH 
+# =====================
+# помістити в корзину
+cmd trash_put ${{
+    TR="$HOME/.local/share/Trash"
+    mkdir -p "$TR/files" "$TR/info"
+
+    printf "%s\n" $fx | while IFS= read -r f; do
+        [ -e "$f" ] || continue
+
+        id="$(date +%s%N)"
+        base="$(basename "$f")"
+        real="$(readlink -f "$f")"
+
+        mv -- "$f" "$TR/files/$id" || continue
+
+        cat >"$TR/info/$id.trashinfo" <<EOF
+Path=$real
+Name=$base
+Date=$(date -Iseconds)
+EOF
+    echo "Файл $f переміщено в кошик"
+    done
+
+    pkill -RTMIN+2 dwmblocks
+    command lf -remote "send $id reload"
+}}
+map db trash_put
+map ви trash_put
+
+# --- trash restore fzf
+cmd trash_restore ${{
+    TR="$HOME/.local/share/Trash"
+
+    list=$(
+        for i in "$TR/info/"*.trashinfo; do
+            [ -e "$i" ] || continue
+            id="$(basename "$i" .trashinfo)"
+            name="$(sed -n 's/^Name=//p' "$i")"
+            path="$(sed -n 's/^Path=//p' "$i")"
+            printf "%s | %s | %s\n" "$id" "$name" "$path"
+        done
+    )
+    
+    export FZF_DEFAULT_OPTS="--layout=reverse --border=rounded --margin=5%,10% --height=80% --info=inline"
+    sel="$(printf "%s\n" "$list" | fzf -m --prompt='Відновити файл > ')"
+    
+    [ -z "$sel" ] && exit
+
+    printf "%s\n" "$sel" | while IFS= read -r line; do
+        id="${line%% |*}"
+        info="$TR/info/$id.trashinfo"
+        file="$TR/files/$id"
+
+        dest="$(sed -n 's/^Path=//p' "$info")"
+        mkdir -p "$(dirname "$dest")"
+        mv -- "$file" "$dest"
+        rm -f -- "$info"
+    done
+
+    pkill -RTMIN+2 dwmblocks
+    command lf -remote "send $id reload"
+}}
+map dr trash_restore
+map вк trash_restore
+
+# ---- trash empty
+cmd trash_empty %{{
+    echo "Очистити кошик? [y/N] " 
+    read ans
+    case "$ans" in
+        y|Y|н|Н)
+            trash-empty 
+            pkill -RTMIN+2 dwmblocks
+            echo "Кошик очищено"
+            ;;
+        *)
+            echo "Скасовано"
+            ;;
+    esac
+    command lf -remote "send $id reload"
+}}
+map de trash_empty
+map ву trash_empty
+
+
+# =====================
+# UA BINDINGS
+# =====================
+map о down
+map л up
+map р updir
+map д open
+map н copy
+map ь move
+
+# Перехід на початок та кінець (g, G -> п, П)
+map g
+map gg top
+map пп top          # g - на початок
+map П bottom       # G - в кінець
