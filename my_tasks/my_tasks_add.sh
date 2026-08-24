@@ -1,10 +1,27 @@
 #!/usr/bin/env bash
 
-# 1. Зберігаємо поточну розкладку клавіатури на початку
-initial_layout=$(cat /tmp/dwm_layout 2>/dev/null || echo "🗽US")
+# Зберігаємо поточну розкладку клавіатури на початку 
+initial_layout=$(xkb-switch -p 2>/dev/null || echo "us")
 
-# Гарантовано відновлюємо вихідну розкладку при будь-якому виході (включно з помилками та крешами)
-trap 'if [[ "$initial_layout" == *"UA"* ]]; then xkb-switch -s ua; echo "🌻UA" > /tmp/dwm_layout; else xkb-switch -s us; echo "🗽US" > /tmp/dwm_layout; fi; pkill -RTMIN+1 dwmblocks' EXIT
+# если что-то пойдет не так восстанавливаем как било
+trap '
+    if [[ "$initial_layout" == "ua" ]]; then
+        xkb-switch -s ua
+        echo "🌻UA" > /tmp/dwm_layout
+    else
+        xkb-switch -s us
+        echo "🗽US" > /tmp/dwm_layout
+    fi
+    pkill -RTMIN+1 dwmblocks
+' EXIT
+
+#  переключаем раскладку 
+current_xkb="$initial_layout"
+if [[ "$current_xkb" != "ua" ]]; then
+    xkb-switch -s ua
+    echo "🌻UA" > /tmp/dwm_layout
+    pkill -RTMIN+1 dwmblocks
+fi
 
 # Шлях до основного файлу нотаток
 ORG_FILE="$HOME/awards/org/diary.org"
