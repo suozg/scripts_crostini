@@ -63,6 +63,10 @@ map й quit
 
 # ---------- MARKS ----------
 map є mark-load
+map ь mark-save
+map Є mark-remove
+
+# ----- TAGS ---------
 map е tag-toggle
 
 # ------- SELECT -------------
@@ -858,7 +862,6 @@ map л up
 map р updir
 map д open
 map н copy
-map ь move
 
 # Перехід на початок та кінець (g, G -> п, П)
 map g
