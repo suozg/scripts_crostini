@@ -1,5 +1,6 @@
 #!/bin/bash
-
+# потрібен xsettingsd
+# 
 set -u
 
 THEMES_DIR="$HOME/.themes"
@@ -129,6 +130,23 @@ fi
 
 
 # ============================================================
+# Xsettingsd (оновлення демона на льоту)
+# ============================================================
+
+XSETTINGS_CONF="$HOME/.xsettingsd"
+
+# Записуємо параметр теми у форматі xsettingsd
+if [[ -f "$XSETTINGS_CONF" ]] && grep -q 'Net/ThemeName' "$XSETTINGS_CONF"; then
+    sed -i "s|Net/ThemeName.*|Net/ThemeName \"$GTK_THEME\"|" "$XSETTINGS_CONF"
+else
+    echo "Net/ThemeName \"$GTK_THEME\"" >> "$XSETTINGS_CONF"
+fi
+
+# Сигналимо демону xsettingsd оновити конфігурацію на льоту
+pkill -HUP xsettingsd || true
+
+
+# ============================================================
 # LibreOffice
 # ============================================================
 
@@ -152,25 +170,58 @@ if ! pgrep -x soffice.bin >/dev/null && \
         echo "Попередження: немає $TARGET_LO_CONF"
     fi
 else
-    echo "LibreOffice запущено — конфігурацію не змінено."
+echo "LibreOffice запущено — конфігурацію не змінено."
 fi
 
 
 # ============================================================
-# ST
+# ST (Симлінк + оновлення палітри для відкритих вікон)
 # ============================================================
 
 if [[ "$NEW_MODE" == "dark" ]]; then
     ST_TARGET="$ST_DARK"
+    COLORS=(
+        "#1D1F21" "#CC3333" "#3A8F3A" "#DDA600" "#3366CC" "#CC66CC" "#00CCCC" "#EEEEEE"
+        "#BBBBBB" "#FF3333" "#4FB36A" "#E0CC00" "#5C94FF" "#FF66FF" "#33FFFF" "#EEEEEE"
+        "#FFFFFF" "#1D1F21" "#00CCCC"
+    )
 else
     ST_TARGET="$ST_LIGHT"
+    COLORS=(
+        "#2A2E2A" "#8C3B3B" "#2F6F6B" "#776A2B" "#305080" "#7A4F7A" "#2F7F7A" "#444444"
+        "#555555" "#B34A4A" "#2F6F6B" "#776A2B" "#305080" "#7A4F7A" "#2F7F7A" "#1A1A1A"
+        "#2A2E2A" "#E3E2CF" "#2F7F7A"
+    )
 fi
 
+# 1. Оновлюємо симлінк
 if [[ -e "$ST_TARGET" ]]; then
     ln -sfn "$ST_TARGET" "$ST_LINK"
 else
     echo "Попередження: не знайдено $ST_TARGET"
 fi
+
+# 2. Формуємо OSC-послідовність
+osc_seq=""
+for i in {0..15}; do
+    osc_seq+="\033]4;${i};${COLORS[$i]}\007"
+done
+osc_seq+="\033]10;${COLORS[16]}\007"
+osc_seq+="\033]11;${COLORS[17]}\007"
+osc_seq+="\033]12;${COLORS[18]}\007"
+
+# 3. Надійний пошук терміналів через ps та надсилання послідовності
+for pid in $(pgrep -x st); do
+    for child_pid in $(pgrep -P "$pid"); do
+        tty_path=$(ps -p "$child_pid" -o tty= 2>/dev/null | tr -d ' ')
+        if [[ -n "$tty_path" && "$tty_path" != "?" ]]; then
+            full_tty="/dev/$tty_path"
+            if [[ -w "$full_tty" ]]; then
+                printf "$osc_seq" > "$full_tty" 2>/dev/null
+            fi
+        fi
+    done
+done   
 
 
 # ============================================================
