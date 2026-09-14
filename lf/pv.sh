@@ -28,6 +28,11 @@ fi
 # очищення tmp
 [ $((RANDOM % 20)) -eq 0 ] && find /tmp -name "lf-pdf-*.jpg" -mmin +60 -delete 2>/dev/null &
 
+# ------------------ ІНІЦІАЛІЗАЦІЯ ЗМІННИХ ------------------
+real_file=$(readlink -f "$file" 2>/dev/null || echo "$file")
+ext="${real_file##*.}"
+ext="${ext,,}"
+
 # ------------------ МЕТАДАНІ ------------------
 mime=$(file --mime-type -b "$file")
 echo -e "\e[1;32mТип:\e[0m $mime"
@@ -44,12 +49,9 @@ elif [[ "$mime" == image/* ]]; then
 fi
 
 if [ -f "$file" ]; then
-    # Дата модифікації (зміна вмісту файлу)
     mod_time=$(stat -c '%y' "$file" 2>/dev/null | cut -d. -f1)
-    # Дата появи на диску (створення / народження файлу)
     birth_time=$(stat -c '%w' "$file" 2>/dev/null | cut -d. -f1)
     
-    # Якщо ФС не підтримує birth_time (виводить '-'), показуємо альтернативу
     if [ "$birth_time" = "-" ] || [ -z "$birth_time" ]; then
         birth_time="недоступно"
     fi
@@ -58,21 +60,51 @@ if [ -f "$file" ]; then
     echo -e "\e[1;32mПоява на диску:\e[0m   $birth_time"
 fi
 
+# ------------------ ШВИДКІ МЕТАДАНІ OFFICE ------------------
+office_exts="docx docx xlsx ods odt"
+if [[ " $office_exts " =~ " $ext " ]]; then
+    author=""
+    modifier=""
+
+    case "$ext" in
+        docx|xlsx)
+            # Зчитуємо тільки маленький core.xml з обмеженням часу у 0.1 секунди
+            xml_data=$(timeout 0.1s unzip -p "$file" docProps/core.xml 2>/dev/null)
+            if [ -n "$xml_data" ]; then
+                author=$(echo "$xml_data" | sed -n 's/.*<dc:creator>\([^<]*\)<\/dc:creator>.*/\1/p')
+                modifier=$(echo "$xml_data" | sed -n 's/.*<cp:lastModifiedBy>\([^<]*\)<\/cp:lastModifiedBy>.*/\1/p')
+            fi
+            ;;
+        odt|ods)
+            xml_data=$(timeout 0.1s unzip -p "$file" meta.xml 2>/dev/null)
+            if [ -n "$xml_data" ]; then
+                author=$(echo "$xml_data" | sed -n 's/.*<meta:initial-creator>\([^<]*\)<\/meta:initial-creator>.*/\1/p')
+                [ -z "$author" ] && author=$(echo "$xml_data" | sed -n 's/.*<dc:creator>\([^<]*\)<\/dc:creator>.*/\1/p')
+                modifier=$(echo "$xml_data" | sed -n 's/.*<dc:creator>\([^<]*\)<\/dc:creator>.*/\1/p')
+            fi
+            ;;
+    esac
+
+    [ -n "$author" ] && echo -e "\e[1;32mАвтор створив:\e[0m    $author"
+    [ -n "$modifier" ] && echo -e "\e[1;32mВостаннє змінив:\e[0m  $modifier"
+fi
+
 echo -e "\e[1;34m$(printf '%.s─' $(seq 1 "$width"))\e[0m"
 
 # ------------------ КОНТЕНТ ------------------
 
-ext="${file##*.}"
-ext="${ext,,}"
-
-content_height=$((height - 6)) # Зменшено на 1 рядок через додатковий параметр дати
+content_height=$((height - 10))
 [ "$content_height" -gt 0 ] || content_height=10
 
 STATE_HASH=$(echo "${file}_${file_size}_$(stat -c '%Y' "$file" 2>/dev/null)" | md5sum | awk '{print $1}')
 
 case "$mime" in
     image/*)
-        chafa --format=sixels -s "${width}x${content_height}" "$file"
+        if [ -n "$NVIM" ]; then
+            chafa --format=symbols -s "${width}x${content_height}" "$file"
+        else
+            chafa --format=sixels -s "${width}x${content_height}" "$file"
+        fi
         ;;
 
     application/pdf)
@@ -81,8 +113,11 @@ case "$mime" in
         if [ ! -f "$TMP_PDF" ]; then
             pdftoppm -f 1 -l 1 -jpeg -singlefile "$file" "${TMP_PDF%.jpg}" 2>/dev/null
         fi
-        
-        chafa --format=sixels -s "${width}x${content_height}" "$TMP_PDF"
+        if [ -n "$NVIM" ]; then
+            chafa --format=symbols -s "${width}x${content_height}" "$TMP_PDF"
+        else
+            chafa --format=sixels -s "${width}x${content_height}" "$TMP_PDF"
+        fi       
         ;;
 
     text/*|application/json)
@@ -129,6 +164,14 @@ case "$mime" in
                     catdoc "$file"  2>/dev/null | awk 'NF' | head -n "$content_height"
                 else
                     pandoc -s "$file" -t markua 2>/dev/null | head -n "$content_height" 
+                fi
+                ;;
+            lua)
+                BAT_BIN=$(command -v batcat || command -v bat)
+                if [ -n "$BAT_BIN" ]; then
+                    $BAT_BIN --color=always --style=plain --language=lua --paging=never --terminal-width="$width" --line-range=1:"$content_height" "$file"
+                else
+                    head -n "$content_height" "$file"
                 fi
                 ;;
             doc)
