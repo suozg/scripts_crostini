@@ -121,7 +121,7 @@ static const char *themecmd[]  = { "/home/alex320388/.local/bin/set-theme-based-
 static const char *open_radio[]  = { "/home/alex320388/.local/bin/dwm/radio.sh", NULL };
 static const char *open_calc[]  = { "/home/alex320388/.local/bin/dwm/calculator.sh", NULL };
 static const char *open_help[]  = { "/home/alex320388/.local/bin/dwm/help.sh", NULL };
-static const char *nakaz[]  = { "/home/alex320388/.local/bin/nn_start", NULL };
+static const char *nakaz[]  = { "/home/alex320388/.local/bin/drs_wx.bin", NULL };
 static const char *awards[]  = { "/home/alex320388/.local/bin/awardstart", NULL };
 static const char *getclpb[]  = { "/home/alex320388/.local/bin/dwm/get_clipb.sh", NULL };
 static const char *sendclpb[]  = { "/home/alex320388/.local/bin/dwm/send_clipb.sh", NULL };
@@ -132,20 +132,21 @@ static const char *open_events[]  = { "/home/alex320388/.local/bin/dwm/my_tasks_
 static const char *select_color[]  = { "/home/alex320388/.local/bin/dwm/selcolor_with_dmenuklik.sh", NULL }; 
 static const char *eyebreak_force[] = { "pkill", "-USR1", "-f", "eyebreak", NULL };
 static const char *eyebreak_skip[]  = { "pkill", "-USR2", "-f", "eyebreak", NULL };
-static const char *orgagendacmd[] = { "/home/alex320388/.local/bin/st", "-t", "Розклад справ та завдань", "-e", "nvim", "-c", "lua require('orgmode').agenda:todos()", NULL };
-
+static const char *orgagendacmd[] = { "/home/alex320388/.local/bin/st", "-t", "Розклад справ та завдань", "-e", "nvim", "-c", "autocmd VimEnter * ++once lua require('orgmode').agenda:todos()", NULL };
+static const char *translatorscmd[] = { "//home/alex320388/.local/bin/dwm/translator.sh", NULL };
 
 static const Key keys[] = {
 	/* modifier             key     function        argument */
-    { MODKEY,             167,       spawn,         SHCMD("bash -c 'sleep 0.2; win=$(/usr/bin/xdotool getwindowfocus getwindowname); if echo \"$win\" | grep -iq libreoffice; then /usr/bin/xdotool key --clearmodifiers ctrl+S; fi'") }, /* стрелка вправо вверху */
-    { MODKEY,             166,       spawn,         SHCMD("bash -c 'sleep 0.2; win=$(/usr/bin/xdotool getwindowfocus getwindowname); if echo \"$win\" | grep -iq libreoffice; then /usr/bin/xdotool key --clearmodifiers ctrl+o; fi'") }, /* стрелка влева вверху */
+    { MODKEY,               39,     spawn,          {.v = translatorscmd } },
+    { MODKEY,              167,     spawn,          SHCMD("bash -c 'sleep 0.2; win=$(/usr/bin/xdotool getwindowfocus getwindowname); if echo \"$win\" | grep -iq libreoffice; then /usr/bin/xdotool key --clearmodifiers ctrl+S; fi'") }, /* стрелка вправо вверху */
+    { MODKEY,              166,     spawn,          SHCMD("bash -c 'sleep 0.2; win=$(/usr/bin/xdotool getwindowfocus getwindowname); if echo \"$win\" | grep -iq libreoffice; then /usr/bin/xdotool key --clearmodifiers ctrl+o; fi'") }, /* стрелка влева вверху */
     { MODKEY,               38,     spawn,          {.v = orgagendacmd } },  // a 
     { MODKEY,               72,     spawn,          {.v = eyebreak_force } },// F6 
     { MODKEY,               73,     spawn,          {.v = eyebreak_skip } }, // F7
     { MODKEY|ControlMask,   28,     spawn,          {.v = themecmd } },      // t
 	{ MODKEY,               33,     spawndmenu,     {0} },                   // p
 	{ MODKEY,               36,     zoom,           {0} },                   // Return
-	{ MODKEY,               39,     spawn,          {.v = select_color } },  // s
+	{ MODKEY|ShiftMask,     39,     spawn,          {.v = select_color } },  // s
 	{ MODKEY|ControlMask,   36,     spawn,          {.v = termcmd } },       // Return
 	{ MODKEY,               181,    spawn,          {.v = open_calc } },     // Refresh
 	{ MODKEY,               51,     spawn,          {.v = open_events } },   // / "\"
