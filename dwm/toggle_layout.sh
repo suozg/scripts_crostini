@@ -1,11 +1,19 @@
 #!/bin/bash
 
-# 1. Режим для dwmblocks (читаємо те, що підготував dwm)
+# Функція для отримання індикатора Caps Lock
+get_caps() {
+    if xset q 2>/dev/null | grep -q "Caps Lock:\s*on"; then
+        echo "🔒" # Текст/іконка при включеному Caps Lock
+    fi
+}
+
+# 1. Режим для dwmblocks (читаємо те, що підготував dwm + Caps Lock)
 if [ "$1" = "status" ]; then
+    caps=$(get_caps)
     if [ -f /tmp/dwm_layout ]; then
-        cat /tmp/dwm_layout
+        echo "$(cat /tmp/dwm_layout)$caps"
     else
-        echo "🗽US"
+        echo "🗽US$caps"
     fi
     exit 0
 fi
