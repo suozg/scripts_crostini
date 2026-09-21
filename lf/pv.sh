@@ -54,31 +54,55 @@ content_height=$((height - 10))
 [ "$content_height" -gt 0 ] || content_height=10
 BAT_BIN=$(command -v batcat || command -v bat)
 
-# Буфер для Office файлов (чтобы не вызывать unzip повторно)
+# Буфер для Office файлов
 zip_structure=""
 
+
 # ------------------ ВЫВОД МЕТАДАННЫХ ------------------
-echo -e "\e[1;32mТип:\e[0m $mime"
+
+# Обчисляємо ширину під значення (Ширина панелі мінус 12 символів під мітку)
+val_width=$((width - 12))
+[ "$val_width" -lt 5 ] && val_width=5
+
+# Упрощаем и ограничиваем MIME-тип по ширине
+disp_mime="$mime"
+case "$mime" in
+    *wordprocessingml.document*) disp_mime="MS Word (docx)" ;;
+    *spreadsheetml.sheet*)       disp_mime="MS Excel (xlsx)" ;;
+    *presentationml.presentation*) disp_mime="MS PowerPoint (pptx)" ;;
+    *opendocument.text*)         disp_mime="OpenDocument Text" ;;
+    *opendocument.spreadsheet*)  disp_mime="OpenDocument Sheet" ;;
+esac
+
+disp_mime_clean=$(echo "$disp_mime" | cut -c 1-"$val_width")
+echo -e "\e[1;32mТип:\e[0m        $disp_mime_clean"
 
 if [ -d "$file" ]; then
-    echo -e "\e[1;32mПапка:\e[0m содержит $(find "$file" -mindepth 1 -maxdepth 1 | wc -l) элементов"
+    echo -e "\e[1;32mПапка:\e[0m      содержит $(find "$file" -mindepth 1 -maxdepth 1 | wc -l) элементов"
 elif [[ "$mime" == text/* || "$mime" == application/json || "$mime" == application/xml ]]; then
-    echo -e "\e[1;32mСтрок:\e[0m $(wc -l < "$file")"
+    echo -e "\e[1;32mСтрок:\e[0m      $(wc -l < "$file")"
 elif [[ "$mime" == image/* ]]; then
     if command -v identify >/dev/null 2>&1; then
         dimensions=$(identify -format "%wx%h" "$file" 2>/dev/null)
-        [ -n "$dimensions" ] && echo -e "\e[1;32mРазмер:\e[0m $dimensions px"
+        [ -n "$dimensions" ] && echo -e "\e[1;32mРазмер:\e[0m     $dimensions px"
     fi
 fi
 
 if [ -f "$file" ]; then
     mod_time_short="${mod_time%.*}"
     birth_time_short="${birth_time%.*}"
+    
+    # Видаляємо секундну точність та форматуємо без залишку
+    mod_time_clean=$(echo "$mod_time_short" | cut -c 1-16 | cut -c 1-"$val_width")
+    
     if [[ "$birth_time_short" == "-" || -z "$birth_time_short" ]]; then
-        birth_time_short="недоступно"
+        birth_time_clean="недоступно"
+    else
+        birth_time_clean=$(echo "$birth_time_short" | cut -c 1-16 | cut -c 1-"$val_width")
     fi
-    echo -e "\e[1;32mИзменение:\e[0m     $mod_time_short"
-    echo -e "\e[1;32mСоздание:\e[0m      $birth_time_short"
+
+    echo -e "\e[1;32mИзменение:\e[0m  $mod_time_clean"
+    echo -e "\e[1;32mСоздание:\e[0m   $birth_time_clean"
 fi
 
 # Метаданные Office
@@ -99,37 +123,49 @@ if [[ "$office_exts" =~ " $ext " ]]; then
         odt|ods)
             if echo "$zip_structure" | grep -q "meta.xml"; then
                 xml_data=$(unzip -p "$file" meta.xml 2>/dev/null)
-# Спочатку шукаємо початкового творця, якщо немає — звичайного dc:creator
                 author=$(echo "$xml_data" | sed -n 's/.*<meta:initial-creator>\([^<]*\)<\/meta:initial-creator>.*/\1/p')
                 [ -z "$author" ] && author=$(echo "$xml_data" | sed -n 's/.*<dc:creator>\([^<]*\)<\/dc:creator>.*/\1/p')
             fi
             ;;
     esac
 
-    [ -n "$author" ] && echo -e "\e[1;32mАвтор:\e[0m         $author"
-    [ -n "$modifier" ] && echo -e "\e[1;32mИзменил:\e[0m       $modifier"
+    [ -n "$author" ] && echo -e "\e[1;32mАвтор:\e[0m      $(echo "$author" | cut -c 1-"$val_width")"
+    [ -n "$modifier" ] && echo -e "\e[1;32mИзменил:\e[0m    $(echo "$modifier" | cut -c 1-"$val_width")"
 fi
 
 echo -e "\e[1;34m$(printf '%.s─' $(seq 1 "$width"))\e[0m"
+
 
 # ------------------ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ВЫВОДА ------------------
 draw_image() {
     local img_path="$1"
     local max_h="${2:-$content_height}"
+    
+    [ "$max_h" -le 0 ] && max_h=5
+
     if [ -n "$NVIM" ]; then
-        chafa --format=symbols -s "${width}x${max_h}" "$img_path"
+        chafa --format=symbols --size="${width}x${max_h}" --center=off "$img_path" 2>/dev/null
     else
-        chafa --format=sixels -s "${width}x${max_h}" "$img_path" 2>/dev/null || chafa -s "${width}x${max_h}" "$img_path"
+        chafa --format=sixels --size="${width}x${max_h}" --center=off "$img_path" 2>/dev/null || \
+        chafa --size="${width}x${max_h}" --center=off "$img_path" 2>/dev/null
     fi
 }
 
 draw_text() {
+    local input_file="${1:-/dev/stdin}"
+    
     if [ -n "$BAT_BIN" ]; then
-        $BAT_BIN --color=always --style=plain --paging=never --terminal-width="$width" --line-range=1:"$content_height" "$@"
+        $BAT_BIN --color=always \
+                 --style=plain \
+                 --paging=never \
+                 --wrap=character \
+                 --terminal-width="$width" \
+                 "$input_file" 2>/dev/null | head -n "$content_height"
     else
-        head -n "$content_height" "$1"
+        fold -s -w "$width" "$input_file" 2>/dev/null | head -n "$content_height"
     fi
 }
+
 
 # ------------------ ОСНОВНЫЕ ФУНКЦИИ ПРЕВЬЮ ------------------
 
@@ -250,7 +286,6 @@ preview_archive() {
     fi
 }
 
-
 preview_office() {
     case "$ext" in
         docx)
@@ -267,24 +302,23 @@ preview_office() {
                 TMP_IMG="$CACHE_DIR/docx-$STATE_HASH.jpg"
                 [ ! -f "$TMP_IMG" ] && unzip -p "$file" "$img_inside" > "$TMP_IMG" 2>/dev/null
 
-                # Показываем изображение, выделяя под него примерно 35-40% доступной высоты
-                img_height=$((content_height * 38 / 100))
+                img_height=$((content_height * 40 / 100))
                 [ "$img_height" -lt 5 ] && img_height=5
                 
-                # Оставшуюся высоту отдаем под полный текст
-                text_lines=$((content_height - img_height - 1))
-                [ "$text_lines" -lt 3 ] && text_lines=3
+                text_lines=$((content_height - img_height - 2))
+                [ "$text_lines" -lt 2 ] && text_lines=2
 
                 if [ -n "$text_content" ]; then
-                    echo "$text_content" | head -n "$text_lines"
+                    content_height="$text_lines" echo "$text_content" | draw_text
                     echo -e "\e[1;30m---\e[0m"
                 fi
 
                 if [ -s "$TMP_IMG" ]; then
+                    echo ""
                     draw_image "$TMP_IMG" "$img_height"
                 fi
             else
-                [ -n "$text_content" ] && echo "$text_content" | head -n "$content_height" || echo "Документ не содержит текста."
+                [ -n "$text_content" ] && echo "$text_content" | draw_text || echo "Документ не содержит текста."
             fi
             ;;
 
@@ -302,25 +336,26 @@ preview_office() {
                 TMP_IMG="$CACHE_DIR/odt-$STATE_HASH.jpg"
                 [ ! -f "$TMP_IMG" ] && unzip -p "$file" "$img_inside" > "$TMP_IMG" 2>/dev/null
 
-                img_height=$((content_height * 38 / 100))
+                img_height=$((content_height * 40 / 100))
                 [ "$img_height" -lt 5 ] && img_height=5
 
-                text_lines=$((content_height - img_height - 1))
-                [ "$text_lines" -lt 3 ] && text_lines=3
+                text_lines=$((content_height - img_height - 2))
+                [ "$text_lines" -lt 2 ] && text_lines=2
 
                 if [ -n "$text_content" ]; then
-                    echo "$text_content" | head -n "$text_lines"
+                    content_height="$text_lines" echo "$text_content" | draw_text
                     echo -e "\e[1;30m---\e[0m"
                 fi
 
                 if [ -s "$TMP_IMG" ]; then
+                    echo ""
                     draw_image "$TMP_IMG" "$img_height"
                 fi
             else
-                [ -n "$text_content" ] && echo "$text_content" | head -n "$content_height" || echo "Документ не содержит текста."
+                [ -n "$text_content" ] && echo "$text_content" | draw_text || echo "Документ не содержит текста."
             fi
-            ;;
-
+            ;; 
+        
         xlsx|xls)
             if command -v xlsx2csv >/dev/null 2>&1 && [[ "$ext" == "xlsx" ]]; then
                 xlsx2csv "$file" 2>/dev/null | column -s',' -t | head -n "$content_height"

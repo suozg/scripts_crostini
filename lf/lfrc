@@ -506,7 +506,7 @@ cmd doc_to_pdf ${{
     case "$ext_lower" in
         docx|doc|odt)
             echo "Конвертація $filename у PDF..."
-            libreoffice --headless --convert-to pdf "$f" &
+            libreoffice --headless --convert-to pdf "$f" >/dev/null 2>&1
             ;;
         *)
             echo "Помилка: цей формат ($extension) не підтримується для конвертації!"
@@ -528,7 +528,7 @@ cmd all_doc_to_pdf ${{
             case "$ext_lower" in
                 docx|doc|odt)
                     echo "Конвертується: $file"
-                    libreoffice --headless --convert-to pdf "$file"
+                    libreoffice --headless --convert-to pdf "$file" >/dev/null 2>&1
                     count=$((count + 1))
                     ;;
             esac
@@ -852,6 +852,96 @@ cmd trash_empty %{{
 }}
 map de trash_empty
 map ву trash_empty
+
+
+# =====================
+# Print
+# =====================
+cmd print ${{
+    # Отримуємо список вибраних файлів у lf
+    files="$fx"
+    [ -z "$files" ] && exit 0
+
+    # 1. Фільтрація розширень
+    rm -f /tmp/lf_print_valid.tmp /tmp/lf_print_invalid.tmp
+
+    echo "$files" | while IFS= read -r file; do
+        [ -z "$file" ] && continue
+        ext="${file##*.}"
+        ext=$(echo "$ext" | tr '[:upper:]' '[:lower:]')
+
+        case "$ext" in
+            pdf|txt|odt|doc|docx|xls|xlsx)
+                printf "%s\n" "$file" >> /tmp/lf_print_valid.tmp
+                ;;
+            *)
+                echo "1" > /tmp/lf_print_invalid.tmp
+                ;;
+        esac
+    done
+
+    if [ -f /tmp/lf_print_invalid.tmp ]; then
+        echo "Попередження: деякі файли мають непідтримуваний формат і будуть пропущені."
+        rm -f /tmp/lf_print_invalid.tmp
+    fi
+
+    if [ ! -f /tmp/lf_print_valid.tmp ] || [ ! -s /tmp/lf_print_valid.tmp ]; then
+        echo "Помилка: немає придатних файлів для друку!"
+        rm -f /tmp/lf_print_valid.tmp 2>/dev/null
+        echo -n "Натисніть Enter..." && read -r _
+        exit 1
+    fi
+
+    # 2. Вибір принтера через fzf
+    printer=$(lpstat -e 2>/dev/null | fzf --prompt="Оберіть принтер: " --height=40% --reverse)
+    if [ -z "$printer" ]; then
+        rm -f /tmp/lf_print_valid.tmp
+        exit 0
+    fi
+
+    # 3. Перевірка статусу принтера в CUPS
+    printer_status=$(lpstat -p "$printer" 2>&1)
+    if echo "$printer_status" | grep -q "disabled"; then
+        echo "Помилка: Принтер '$printer' вимкнений у системі CUPS!"
+        rm -f /tmp/lf_print_valid.tmp
+        echo -n "Натисніть Enter..." && read -r _
+        exit 1
+    fi
+
+    echo "Відправка завдань на '$printer'..."
+
+    # 4. Друк файлів
+    while IFS= read -r file; do
+        [ -z "$file" ] && continue
+        ext="${file##*.}"
+        ext=$(echo "$ext" | tr '[:upper:]' '[:lower:]')
+
+        echo "Друкується: $file"
+
+        case "$ext" in
+            pdf|txt)
+                lp -d "$printer" "$file"
+                ;;
+            odt|doc|docx|xls|xlsx)
+                tmp_dir=$(mktemp -d)
+                libreoffice --headless --convert-to pdf "$file" --outdir "$tmp_dir" > /dev/null 2>&1
+                pdf_file="$tmp_dir/$(basename "${file%.*}").pdf"
+                if [ -f "$pdf_file" ]; then
+                    lp -d "$printer" "$pdf_file"
+                else
+                    echo "Помилка конвертації: $file"
+                fi
+                rm -rf "$tmp_dir"
+                ;;
+        esac
+    done < /tmp/lf_print_valid.tmp
+
+    rm -f /tmp/lf_print_valid.tmp
+
+    echo -n "Завдання відправлено! Натисніть Enter..." && read -r _
+}}
+map Cp print
+map Сз print
 
 
 # =====================
