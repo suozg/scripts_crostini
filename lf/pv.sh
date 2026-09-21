@@ -146,10 +146,42 @@ case "$mime" in
                 }' | head -n "$content_height"
                 ;;
             docx)
+                # 1. Пробуємо зчитати текст (перевіряємо, щоб результат містив реальні символи, а не пробіли)
+                text_content=""
                 if command -v docx2txt >/dev/null; then
-                    docx2txt "$file" - | awk 'NF' | head -n "$content_height"
+                    text_content=$(docx2txt "$file" - 2>/dev/null | grep -S '[^[:space:]]')
+                fi
+
+                if [ -z "$text_content" ] && command -v pandoc >/dev/null; then
+                    text_content=$(pandoc -f docx -t plain "$file" 2>/dev/null | grep -S '[^[:space:]]')
+                fi
+
+                # 2. Якщо текст знайдено — виводимо його
+                if [ -n "$text_content" ]; then
+                    echo "$text_content" | head -n "$content_height"
                 else
-                    pandoc -s "$file" -t markua 2>/dev/null | head -n "$content_height"
+                    # 3. Якщо тексту немає — витягуємо зображення (скан/фото)
+                    img_inside=$(unzip -l "$file" 2>/dev/null | grep -iE 'word/media/' | head -n 1 | grep -oE 'word/media/[^ ]+')
+
+                    if [ -n "$img_inside" ]; then
+                        TMP_IMG="/tmp/lf-docx-$STATE_HASH.jpg"
+
+                        if [ ! -f "$TMP_IMG" ]; then
+                            unzip -p "$file" "$img_inside" > "$TMP_IMG" 2>/dev/null
+                        fi
+
+                        if [ -s "$TMP_IMG" ]; then
+                            if [ -n "$NVIM" ]; then
+                                chafa --format=symbols -s "${width}x${content_height}" "$TMP_IMG"
+                            else
+                                chafa --format=sixels -s "${width}x${content_height}" "$TMP_IMG" 2>/dev/null || chafa -s "${width}x${content_height}" "$TMP_IMG"
+                            fi
+                        else
+                            echo "Не вдалося витягти скановану сторінку"
+                        fi
+                    else
+                        echo "Документ не містить тексту та зображень"
+                    fi
                 fi
                 ;;
             odt)
