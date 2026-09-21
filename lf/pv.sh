@@ -250,6 +250,7 @@ preview_archive() {
     fi
 }
 
+
 preview_office() {
     case "$ext" in
         docx)
@@ -263,18 +264,23 @@ preview_office() {
             img_inside=$(echo "$zip_structure" | grep -iE '^word/media/' | head -n 1)
 
             if [ -n "$img_inside" ]; then
-                max_text_lines=5
-                if [ -n "$text_content" ]; then
-                    echo "$text_content" | head -n "$max_text_lines"
-                    echo -e "\e[1;30m---\e[0m"
-                fi
-
                 TMP_IMG="$CACHE_DIR/docx-$STATE_HASH.jpg"
                 [ ! -f "$TMP_IMG" ] && unzip -p "$file" "$img_inside" > "$TMP_IMG" 2>/dev/null
 
+                # Показываем изображение, выделяя под него примерно 35-40% доступной высоты
+                img_height=$((content_height * 38 / 100))
+                [ "$img_height" -lt 5 ] && img_height=5
+                
+                # Оставшуюся высоту отдаем под полный текст
+                text_lines=$((content_height - img_height - 1))
+                [ "$text_lines" -lt 3 ] && text_lines=3
+
+                if [ -n "$text_content" ]; then
+                    echo "$text_content" | head -n "$text_lines"
+                    echo -e "\e[1;30m---\e[0m"
+                fi
+
                 if [ -s "$TMP_IMG" ]; then
-                    img_height=$((content_height - max_text_lines - 1))
-                    [ "$img_height" -lt 5 ] && img_height=5
                     draw_image "$TMP_IMG" "$img_height"
                 fi
             else
@@ -293,18 +299,21 @@ preview_office() {
             img_inside=$(echo "$zip_structure" | grep -iE '^Pictures/' | head -n 1)
 
             if [ -n "$img_inside" ]; then
-                max_text_lines=5
-                if [ -n "$text_content" ]; then
-                    echo "$text_content" | head -n "$max_text_lines"
-                    echo -e "\e[1;30m---\e[0m"
-                fi
-
                 TMP_IMG="$CACHE_DIR/odt-$STATE_HASH.jpg"
                 [ ! -f "$TMP_IMG" ] && unzip -p "$file" "$img_inside" > "$TMP_IMG" 2>/dev/null
 
+                img_height=$((content_height * 38 / 100))
+                [ "$img_height" -lt 5 ] && img_height=5
+
+                text_lines=$((content_height - img_height - 1))
+                [ "$text_lines" -lt 3 ] && text_lines=3
+
+                if [ -n "$text_content" ]; then
+                    echo "$text_content" | head -n "$text_lines"
+                    echo -e "\e[1;30m---\e[0m"
+                fi
+
                 if [ -s "$TMP_IMG" ]; then
-                    img_height=$((content_height - max_text_lines - 1))
-                    [ "$img_height" -lt 5 ] && img_height=5
                     draw_image "$TMP_IMG" "$img_height"
                 fi
             else
@@ -335,6 +344,7 @@ preview_office() {
             ;;
     esac
 }
+
 
 preview_by_extension() {
     case "$ext" in
