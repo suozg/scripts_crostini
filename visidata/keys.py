@@ -24,3 +24,4 @@ TableSheet.bindkey('н', 'syscopy-row')
 TableSheet.bindkey('Н', 'syscopy-cell')
 BaseSheet.bindkey('н', 'syscopy-row')
 BaseSheet.bindkey('Н', 'syscopy-cell')
+
