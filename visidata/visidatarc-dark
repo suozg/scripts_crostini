@@ -1,0 +1,26 @@
+import sys
+from pathlib import Path
+options.clipboard_copy_cmd = 'xclip -selection clipboard'
+# Підключаємо спільні клавіші
+exec(Path('~/.config/visidata/keys.py').expanduser().read_text())
+
+# Кольори темної теми
+options.color_default      = '223 on 235'
+options.color_current_row  = '229 on 237'
+options.color_current_col  = '229 on 237'
+options.color_current_cell = '235 on 214'
+
+options.color_selected_row = '223 on 237'
+
+options.color_default_hdr  = '229 on 237'
+options.color_current_hdr  = '235 on 214'
+
+options.color_status       = '223 on 237'
+options.color_error        = '167 on 235'
+options.color_warning      = '214 on 235'
+
+options.color_key_col      = '109 on 235'
+options.color_edit_cell    = '229 on 239'
+
+options.color_menu         = '223 on 237'
+options.color_menu_active  = '235 on 208'
