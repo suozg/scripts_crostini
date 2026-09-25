@@ -202,6 +202,10 @@ cmd smart_view ${{
 
     case "$ext" in
         # Таблиці за стрілкою вправо відкриваємо у VisiData (vd)
+        pptx)
+            clear
+            ~/.config/lf/readoc.sh "$f"
+            ;; 
         xls|xlsx|ods|csv|tsv)
             vd "$f"
             ;;
@@ -798,7 +802,7 @@ EOF
 map db trash_put
 map ви trash_put
 
-# --- trash restore fzf
+# --- trash restore fzf з датою видалення
 cmd trash_restore ${{
     TR="$HOME/.local/share/Trash"
 
@@ -808,12 +812,17 @@ cmd trash_restore ${{
             id="$(basename "$i" .trashinfo)"
             name="$(sed -n 's/^Name=//p' "$i")"
             path="$(sed -n 's/^Path=//p' "$i")"
-            printf "%s | %s | %s\n" "$id" "$name" "$path"
+            # Зчитуємо дату та форматуємо її до YYYY-MM-DD HH:MM
+            raw_date="$(sed -n 's/^Date=//p' "$i")"
+            date="$(date -d "$raw_date" "+%Y-%m-%d %H:%M" 2>/dev/null || echo "$raw_date")"
+
+            printf "%s | %s | %s | %s\n" "$id" "$date" "$name" "$path"
         done
     )
     
     export FZF_DEFAULT_OPTS="--layout=reverse --border=rounded --margin=5%,10% --height=80% --info=inline"
-    sel="$(printf "%s\n" "$list" | fzf -m --prompt='Відновити файл > ')"
+    # Використовуємо --with-nth=2.. щоб приховати внутрішній ID у самому меню fzf
+    sel="$(printf "%s\n" "$list" | fzf -m --with-nth=2.. --prompt='Відновити файл > ')"
     
     [ -z "$sel" ] && exit
 
@@ -919,7 +928,20 @@ cmd print ${{
         echo "Друкується: $file"
 
         case "$ext" in
-            pdf|txt)
+            pdf)
+                tmp_pdf=$(mktemp --suffix=.pdf)
+                # Швидко перемальовуємо PDF за допомогою pdftocairo
+                if command -v pdftocairo >/dev/null 2>&1; then
+                    pdftocairo -pdf "$file" "$tmp_pdf"
+                    lp -d "$printer" "$tmp_pdf"
+                else
+                    # Резервний варіант, якщо pdftocairo не встановлено
+                    pdf2ps "$file" - | ps2pdf - "$tmp_pdf"
+                    lp -d "$printer" "$tmp_pdf"
+                fi
+                rm -f "$tmp_pdf"
+                ;;
+            txt)
                 lp -d "$printer" "$file"
                 ;;
             odt|doc|docx|xls|xlsx)

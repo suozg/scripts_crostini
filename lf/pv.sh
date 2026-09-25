@@ -106,7 +106,7 @@ if [ -f "$file" ]; then
 fi
 
 # Метаданные Office
-office_exts=" docx xlsx ods odt "
+office_exts=" docx xlsx ods odt pptx ppt "
 if [[ "$office_exts" =~ " $ext " ]]; then
     author=""
     modifier=""
@@ -168,6 +168,14 @@ draw_text() {
 
 
 # ------------------ ОСНОВНЫЕ ФУНКЦИИ ПРЕВЬЮ ------------------
+preview_pptx() {
+    unzip -p "$file" "ppt/slides/slide*.xml" 2>/dev/null |
+        sed -e 's/<[^>]*>/ /g' |
+        tr -s ' ' |
+        sed '/^[[:space:]]*$/d' |
+        fold -s -w "$width" |
+        head -n "$content_height"
+}
 
 preview_image() {
     draw_image "$file"
@@ -380,19 +388,24 @@ preview_office() {
     esac
 }
 
-
 preview_by_extension() {
     case "$ext" in
-        md|markdown)                         preview_markdown ;;
-        eml)                                 preview_mail ;;
-        csv)                                 preview_csv ;;
-        docx|odt|xlsx|xls|ods|rtf|doc)       preview_office ;;
-        zip|7z|rar|tar|gz|bz2|xz|tbz2|tgz|iso|cab|deb|rpm) preview_archive ;;
+        md|markdown)                            preview_markdown ;;
+        eml)                                    preview_mail ;;
+        csv)                                    preview_csv ;;
+        docx|odt|xlsx|xls|ods|rtf|doc)         preview_office ;;
+        pptx)                                   preview_pptx ;;
+        ppt)                                    echo "Формат PPT поки не підтримується." ;;
+        zip|7z|rar|tar|gz|bz2|xz|tbz2|tgz|iso|cab|deb|rpm)
+                                                 preview_archive ;;
         *)
-            file -b "$file" | fold -s -w "$width" | head -n "$content_height"
+            file -b "$file" |
+                fold -s -w "$width" |
+                head -n "$content_height"
             ;;
     esac
 }
+
 
 # ------------------ ОСНОВНОЙ БЛОК МАРШРУТИЗАЦИИ ------------------
 case "$mime" in

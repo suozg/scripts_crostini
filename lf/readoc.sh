@@ -9,6 +9,50 @@ ext=$(echo "$ext" | tr '[:upper:]' '[:lower:]')
 BAT_BIN=$(command -v batcat || command -v bat)
 
 case "$ext" in
+    pptx)
+        read_pptx() {
+            local file="$1"
+            local slide
+            local n=0
+
+            while IFS= read -r slide; do
+                n=$((n + 1))
+
+                echo
+                echo "════════════════════════════════════════"
+                echo " СЛАЙД $n"
+                echo "════════════════════════════════════════"
+
+                unzip -p "$file" "$slide" 2>/dev/null |
+                    sed \
+                        -e 's/<a:t>/\n/g' \
+                        -e 's#</a:t>##g' \
+                        -e 's/<[^>]*>/ /g' |
+                    sed '/^[[:space:]]*$/d' |
+                    tr -s ' '
+            done < <(
+                unzip -Z1 "$file" 2>/dev/null |
+                    grep '^ppt/slides/slide[0-9]\+\.xml$' |
+                    sort -V
+            )
+        }
+
+        if [ -n "$BAT_BIN" ]; then
+            read_pptx "$file_path" |
+                $BAT_BIN \
+                    --language=markdown \
+                    --style=header \
+                    --paging=always
+        else
+            read_pptx "$file_path" | less -R
+        fi
+        ;;
+
+    ppt)
+        echo "Старий формат PPT наразі не підтримується."
+        read -r -p "Натисніть Enter для повернення..." _
+        ;;
+
     pdf)
         # Спочатку пробуємо витягти текст
         text_content=""
