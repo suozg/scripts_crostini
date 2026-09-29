@@ -1,7 +1,17 @@
 #!/bin/bash
-# потрібен xsettingsd
 # 
 set -u
+
+# потрібен xsettingsd
+if ! command -v xsettingsd >/dev/null 2>&1; then
+    echo "Помилка: xsettingsd не встановлений."
+    exit 1
+fi
+
+if ! pgrep -x xsettingsd >/dev/null; then
+    echo "Помилка: xsettingsd не запущений."
+    exit 1
+fi
 
 THEMES_DIR="$HOME/.themes"
 WALLPAPER="$THEMES_DIR/wallpaper.jpg"
@@ -12,14 +22,6 @@ DARKSOLID="#2A2E2A"
 LIGHTMODE_FILE="$HOME/.lightmode"
 
 GTK3_CONFIG="$HOME/.config/gtk-3.0/settings.ini"
-
-LO_CONF="$HOME/.config/libreoffice/4/user/registrymodifications.xcu"
-LO_LIGHT_CONF="$HOME/.config/libreoffice/4/user/registrymodifications.xcu.light"
-LO_DARK_CONF="$HOME/.config/libreoffice/4/user/registrymodifications.xcu.dark"
-
-GEANY_CONF="$HOME/.config/geany/geany.conf"
-GEANY_LIGHT="$HOME/.config/geany/geany_light.conf"
-GEANY_DARK="$HOME/.config/geany/geany_dark.conf"
 
 BAT_CONFIG_DIR="$HOME/.config/bat"
 BAT_CONFIG="$BAT_CONFIG_DIR/config"
@@ -139,34 +141,6 @@ pkill -HUP xsettingsd || true
 
 
 # ============================================================
-# LibreOffice
-# ============================================================
-
-if ! pgrep -x soffice.bin >/dev/null && \
-   ! pgrep -x libreoffice >/dev/null && \
-   ! pgrep -x oosplash >/dev/null; then
-
-    if [[ "$NEW_MODE" == "dark" ]]; then
-        TARGET_LO_CONF="$LO_DARK_CONF"
-    else
-        TARGET_LO_CONF="$LO_LIGHT_CONF"
-    fi
-
-    if [[ -f "$TARGET_LO_CONF" ]]; then
-        if [[ ! -f "$LO_CONF" ]] || ! cmp -s "$TARGET_LO_CONF" "$LO_CONF"; then
-            mkdir -p "$(dirname "$LO_CONF")"
-            cp -f -- "$TARGET_LO_CONF" "$LO_CONF"
-            echo "LibreOffice: $NEW_MODE"
-        fi
-    else
-        echo "Попередження: немає $TARGET_LO_CONF"
-    fi
-else
-echo "LibreOffice запущено — конфігурацію не змінено."
-fi
-
-
-# ============================================================
 # ST (Xresources + оновлення палітри для відкритих вікон)
 # ============================================================
 
@@ -240,29 +214,6 @@ else
         fi
     done
 fi
-
-# ============================================================
-# Geany
-# ============================================================
-
-if command -v geany >/dev/null 2>&1; then
-    if [[ "$NEW_MODE" == "dark" ]]; then
-        TARGET_GEANY_CONF="$GEANY_DARK"
-    else
-        TARGET_GEANY_CONF="$GEANY_LIGHT"
-    fi
-
-    if [[ -f "$TARGET_GEANY_CONF" ]]; then
-        if [[ ! -f "$GEANY_CONF" ]] || ! cmp -s "$TARGET_GEANY_CONF" "$GEANY_CONF"; then
-            mkdir -p "$(dirname "$GEANY_CONF")"
-            cp -- "$TARGET_GEANY_CONF" "$GEANY_CONF"
-            echo "Geany: $NEW_MODE"
-        fi
-    else
-        echo "Попередження: немає $TARGET_GEANY_CONF"
-    fi
-fi
-
 
 # ============================================================
 # DWM Mode File State
