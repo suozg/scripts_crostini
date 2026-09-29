@@ -115,7 +115,10 @@ cmd mount-now %{{
     fusermount -u -z "$HOME/.now_unencrypted" 2>/dev/null || true
 
     if [ -d "/mnt/chromeos/removable/SD Card/now" ]; then
-        rclone mount --crypt-remote "/mnt/chromeos/removable/SD Card/now" now_crypt: "$HOME/.now_unencrypted" --dir-perms 0777 --daemon
+        rclone mount now_crypt: "$HOME/.now_unencrypted" \
+          --dir-perms 0777 \
+          --daemon \
+          --vfs-cache-mode full
         pkill -RTMIN+2 dwmblocks 2>/dev/null || true
         lf -remote "send $id reload"
         lf -remote "send $id echo 'NOW на SD Card успішно змонтована!'"
@@ -129,10 +132,10 @@ map пьт mount-now
 # (unmount) — безпечно відмонтовує папку
 cmd unmount-now %{{
     # Перевірка: якщо йде процес копіювання — забороняємо відмонтування
-    if pgrep -x "cp" >/dev/null || pgrep -x "rsync" >/dev/null; then
-        lf -remote "send $id echo '⚠️ ПОМИЛКА: Не можна відмонтувати під час копіювання!'"
+    if fuser -m "$HOME/.now_unencrypted" >/dev/null 2>&1; then
+        lf -remote "send $id echo '⚠️ ПОМИЛКА: NOW використовується!'"
         exit 1
-    fi
+    fi    
 
     fusermount -u -z "$HOME/.now_unencrypted" 2>/dev/null || true
     
@@ -151,7 +154,10 @@ cmd mount-old %{{
     fusermount -u -z "$HOME/.old_unencrypted" 2>/dev/null || true
 
     if [ -d "/mnt/chromeos/removable/SD Card/old" ]; then
-        rclone mount --crypt-remote "/mnt/chromeos/removable/SD Card/old" old_crypt: "$HOME/.old_unencrypted" --dir-perms 0777 --daemon
+        rclone mount old_crypt: "$HOME/.old_unencrypted" \
+            --dir-perms 0777 \
+            --daemon \
+            --vfs-cache-mode full 
         pkill -RTMIN+2 dwmblocks 2>/dev/null || true
         lf -remote "send $id reload"
         lf -remote "send $id echo 'OLD на SD Card успішно змонтована!'"
@@ -165,11 +171,10 @@ map пьщ mount-old
 # (unmount) — безпечно відмонтовує папку
 cmd unmount-old %{{
     # Перевірка: якщо йде процес копіювання — забороняємо відмонтування
-    if pgrep -x "cp" >/dev/null || pgrep -x "rsync" >/dev/null; then
-        lf -remote "send $id echo '⚠️ ПОМИЛКА: Не можна відмонтувати під час копіювання!'"
+    if fuser -m "$HOME/.old_unencrypted" >/dev/null 2>&1; then
+        lf -remote "send $id echo '⚠️ ПОМИЛКА: OLD використовується!'"
         exit 1
     fi
-
     fusermount -u -z "$HOME/.old_unencrypted" 2>/dev/null || true
     
     # Оновлюємо статус-бар dwmblocks та перезавантажуємо lf
@@ -492,7 +497,8 @@ map Се create_from_template
 cmd resize_img_700 ${{
     mkdir -p resized
     find . -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" \) | while read -r img; do
-        convert "$img" -resize 700x "resized/$img"
+        name="$(basename "$img")"
+        convert "$img" -resize 700x "resized/$name" 
     done
 }}
 map C7 resize_img_700
@@ -833,7 +839,13 @@ cmd trash_restore ${{
 
         dest="$(sed -n 's/^Path=//p' "$info")"
         mkdir -p "$(dirname "$dest")"
-        mv -- "$file" "$dest"
+
+        if [ -e "$dest" ]; then
+            echo "Помилка: файл уже існує: $dest"
+            continue
+        fi
+
+        mv -- "$file" "$dest" || continue
         rm -f -- "$info"
     done
 
