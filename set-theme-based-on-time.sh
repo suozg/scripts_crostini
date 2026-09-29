@@ -167,7 +167,7 @@ fi
 
 
 # ============================================================
-# ST (Симлінк + Xresources + оновлення палітри для відкритих вікон)
+# ST (Xresources + оновлення палітри для відкритих вікон)
 # ============================================================
 
 XRES_LIGHT="$HOME/.Xresources.light"
@@ -175,40 +175,71 @@ XRES_DARK="$HOME/.Xresources.dark"
 
 if [[ "$NEW_MODE" == "dark" ]]; then
     XRES_FILE="$XRES_DARK"
-    COLORS=(
-        "#1D1F21" "#CC3333" "#3A8F3A" "#DDA600" "#3366CC" "#CC66CC" "#00CCCC" "#EEEEEE"
-        "#BBBBBB" "#FF3333" "#4FB36A" "#E0CC00" "#5C94FF" "#FF66FF" "#33FFFF" "#EEEEEE"
-        "#FFFFFF" "#1D1F21" "#00CCCC"
-    )
 else
     XRES_FILE="$XRES_LIGHT"
-    COLORS=(
-        "#2A2E2A" "#8C3B3B" "#2F6F6B" "#776A2B" "#305080" "#7A4F7A" "#2F7F7A" "#444444"
-        "#555555" "#B34A4A" "#2F6F6B" "#776A2B" "#305080" "#7A4F7A" "#2F7F7A" "#1A1A1A"
-        "#2A2E2A" "#E3E2CF" "#2F7F7A"
-    )
 fi
 
-# 2. Оновлюємо xrdb (щоб НОВІ вікна підхоплювали нову тему через XRESOURCES_PATCH)
-if [[ -f "$XRES_FILE" ]]; then
+if [[ ! -f "$XRES_FILE" ]]; then
+    echo "Попередження: немає $XRES_FILE"
+else
+    # --------------------------------------------------------
+    # 1. Оновлюємо xrdb
+    # --------------------------------------------------------
+
     xrdb -merge "$XRES_FILE"
+
+    # --------------------------------------------------------
+    # 2. Читаємо палітру st безпосередньо з Xresources
+    # --------------------------------------------------------
+
+    XRDB=$(xrdb -query)
+
+    declare -a COLORS
+
+    for i in {0..15}; do
+        COLORS[$i]=$(printf '%s\n' "$XRDB" |
+            awk -v n="st.color$i:" '$1 == n {print $2; exit}')
+    done
+
+    COLORS[16]=$(printf '%s\n' "$XRDB" |
+        awk '$1 == "st.foreground:" {print $2; exit}')
+
+    COLORS[17]=$(printf '%s\n' "$XRDB" |
+        awk '$1 == "st.background:" {print $2; exit}')
+
+    COLORS[18]=$(printf '%s\n' "$XRDB" |
+        awk '$1 == "st.cursorColor:" {print $2; exit}')
+
+    # --------------------------------------------------------
+    # 3. Формуємо OSC для вже відкритих st
+    # --------------------------------------------------------
+
+    osc_seq=""
+
+    for i in {0..15}; do
+        [[ -n "${COLORS[$i]:-}" ]] &&
+            osc_seq+="\033]4;${i};${COLORS[$i]}\007"
+    done
+
+    [[ -n "${COLORS[16]:-}" ]] &&
+        osc_seq+="\033]10;${COLORS[16]}\007"
+
+    [[ -n "${COLORS[17]:-}" ]] &&
+        osc_seq+="\033]11;${COLORS[17]}\007"
+
+    [[ -n "${COLORS[18]:-}" ]] &&
+        osc_seq+="\033]12;${COLORS[18]}\007"
+
+    # --------------------------------------------------------
+    # 4. Надсилаємо нову палітру у вже відкриті st
+    # --------------------------------------------------------
+
+    for pty in /dev/pts/[0-9]*; do
+        if [[ -w "$pty" ]]; then
+            printf '%b' "$osc_seq" > "$pty" 2>/dev/null || true
+        fi
+    done
 fi
-
-# 3. Формуємо OSC-послідовність для ВЖЕ ВІДКРИТИХ вікон
-osc_seq=""
-for i in {0..15}; do
-    osc_seq+="\033]4;${i};${COLORS[$i]}\007"
-done
-osc_seq+="\033]10;${COLORS[16]}\007" # Text (Foreground)
-osc_seq+="\033]11;${COLORS[17]}\007" # Background
-osc_seq+="\033]12;${COLORS[18]}\007" # Cursor
-
-# 4. Пряме та надійне надсилання у всі псевдотермінали /dev/pts/*
-for pty in /dev/pts/[0-9]*; do
-    if [[ -w "$pty" ]]; then
-        printf "$osc_seq" > "$pty" 2>/dev/null || true
-    fi
-done
 
 # ============================================================
 # Geany
