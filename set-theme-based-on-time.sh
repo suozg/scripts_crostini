@@ -24,10 +24,6 @@ GEANY_DARK="$HOME/.config/geany/geany_dark.conf"
 BAT_CONFIG_DIR="$HOME/.config/bat"
 BAT_CONFIG="$BAT_CONFIG_DIR/config"
 
-ST_LIGHT="$HOME/.local/bin/dwm/st_w"
-ST_DARK="$HOME/.local/bin/dwm/st_b"
-ST_LINK="$HOME/.local/bin/st"
-
 
 # ============================================================
 # Визначення режиму
@@ -178,7 +174,6 @@ XRES_LIGHT="$HOME/.Xresources.light"
 XRES_DARK="$HOME/.Xresources.dark"
 
 if [[ "$NEW_MODE" == "dark" ]]; then
-    ST_TARGET="$ST_DARK"
     XRES_FILE="$XRES_DARK"
     COLORS=(
         "#1D1F21" "#CC3333" "#3A8F3A" "#DDA600" "#3366CC" "#CC66CC" "#00CCCC" "#EEEEEE"
@@ -186,20 +181,12 @@ if [[ "$NEW_MODE" == "dark" ]]; then
         "#FFFFFF" "#1D1F21" "#00CCCC"
     )
 else
-    ST_TARGET="$ST_LIGHT"
     XRES_FILE="$XRES_LIGHT"
     COLORS=(
         "#2A2E2A" "#8C3B3B" "#2F6F6B" "#776A2B" "#305080" "#7A4F7A" "#2F7F7A" "#444444"
         "#555555" "#B34A4A" "#2F6F6B" "#776A2B" "#305080" "#7A4F7A" "#2F7F7A" "#1A1A1A"
         "#2A2E2A" "#E3E2CF" "#2F7F7A"
     )
-fi
-
-# 1. Оновлюємо симлінк для st
-if [[ -e "$ST_TARGET" ]]; then
-    ln -sfn "$ST_TARGET" "$ST_LINK"
-else
-    echo "Попередження: не знайдено $ST_TARGET"
 fi
 
 # 2. Оновлюємо xrdb (щоб НОВІ вікна підхоплювали нову тему через XRESOURCES_PATCH)
