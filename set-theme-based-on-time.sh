@@ -1,0 +1,294 @@
+#!/bin/bash
+# потрібен xsettingsd
+# 
+set -u
+
+THEMES_DIR="$HOME/.themes"
+WALLPAPER="$THEMES_DIR/wallpaper.jpg"
+
+LIGHTSOLID="#E3E2CF"
+DARKSOLID="#2A2E2A"
+
+LIGHTMODE_FILE="$HOME/.lightmode"
+
+GTK3_CONFIG="$HOME/.config/gtk-3.0/settings.ini"
+
+LO_CONF="$HOME/.config/libreoffice/4/user/registrymodifications.xcu"
+LO_LIGHT_CONF="$HOME/.config/libreoffice/4/user/registrymodifications.xcu.light"
+LO_DARK_CONF="$HOME/.config/libreoffice/4/user/registrymodifications.xcu.dark"
+
+GEANY_CONF="$HOME/.config/geany/geany.conf"
+GEANY_LIGHT="$HOME/.config/geany/geany_light.conf"
+GEANY_DARK="$HOME/.config/geany/geany_dark.conf"
+
+BAT_CONFIG_DIR="$HOME/.config/bat"
+BAT_CONFIG="$BAT_CONFIG_DIR/config"
+
+ST_LIGHT="$HOME/.local/bin/dwm/st_w"
+ST_DARK="$HOME/.local/bin/dwm/st_b"
+ST_LINK="$HOME/.local/bin/st"
+
+
+# ============================================================
+# Визначення режиму
+# ============================================================
+
+case "${1:-}" in
+
+    start)
+        # Автоматичний режим за часом (світлий з 5 до 19, інакше темний)
+        current_hour=$(date +%H)
+        current_hour=$((10#$current_hour))
+        
+        if (( current_hour >= 5 && current_hour < 19 )); then
+            NEW_MODE="light"
+        else
+            NEW_MODE="dark"
+        fi
+        ;;
+
+    light)
+        NEW_MODE="light"
+        ;;
+
+    dark)
+        NEW_MODE="dark"
+        ;;
+
+    "")
+        # Ручне перемикання: перевіряємо наявність файлу ~/.lightmode
+        if [[ -f "$LIGHTMODE_FILE" ]]; then
+            NEW_MODE="dark"
+        else
+            NEW_MODE="light"
+        fi
+        ;;
+
+    *)
+        echo "Використання:"
+        echo "  $0 start   - режим за часом"
+        echo "  $0 light   - світлий режим"
+        echo "  $0 dark    - темний режим"
+        echo "  $0         - перемикнути режим"
+        exit 2
+        ;;
+
+esac
+
+echo "Режим: $NEW_MODE"
+
+
+# ============================================================
+# Wallpaper
+# ============================================================
+
+if [[ "$NEW_MODE" == "light" ]]; then
+    SOLID="$LIGHTSOLID"
+else
+    SOLID="$DARKSOLID"
+fi
+
+if command -v hsetroot >/dev/null 2>&1; then
+    hsetroot -solid "$SOLID" -center "$WALLPAPER"
+fi
+
+
+# ============================================================
+# GTK
+# ============================================================
+
+if [[ "$NEW_MODE" == "dark" ]]; then
+    GTK_THEME="W9_Dark"      # Замініть на вашу реальну темну тему
+else
+    GTK_THEME="W9" # Замініть на вашу реальну світлу тему
+fi
+
+mkdir -p "$(dirname "$GTK3_CONFIG")"
+
+CURRENT_GTK_THEME=""
+if [[ -f "$GTK3_CONFIG" ]]; then
+    CURRENT_GTK_THEME=$(sed -n 's/^gtk-theme-name=//p' "$GTK3_CONFIG" | head -n1)
+fi
+
+if [[ "$CURRENT_GTK_THEME" != "$GTK_THEME" ]]; then
+    if [[ -f "$GTK3_CONFIG" ]] && grep -q '^gtk-theme-name=' "$GTK3_CONFIG"; then
+        sed -i "s/^gtk-theme-name=.*/gtk-theme-name=$GTK_THEME/" "$GTK3_CONFIG"
+    elif [[ -f "$GTK3_CONFIG" ]] && grep -q '^\[Settings\]' "$GTK3_CONFIG"; then
+        sed -i "/^\[Settings\]/a gtk-theme-name=$GTK_THEME" "$GTK3_CONFIG"
+    else
+        cat > "$GTK3_CONFIG" <<EOF
+[Settings]
+gtk-theme-name=$GTK_THEME
+EOF
+    fi
+    echo "GTK: $GTK_THEME"
+fi
+
+
+# ============================================================
+# Xsettingsd (оновлення демона на льоту)
+# ============================================================
+
+XSETTINGS_CONF="$HOME/.xsettingsd"
+
+# Записуємо параметр теми у форматі xsettingsd
+if [[ -f "$XSETTINGS_CONF" ]] && grep -q 'Net/ThemeName' "$XSETTINGS_CONF"; then
+    sed -i "s|Net/ThemeName.*|Net/ThemeName \"$GTK_THEME\"|" "$XSETTINGS_CONF"
+else
+    echo "Net/ThemeName \"$GTK_THEME\"" >> "$XSETTINGS_CONF"
+fi
+
+# Сигналимо демону xsettingsd оновити конфігурацію на льоту
+pkill -HUP xsettingsd || true
+
+
+# ============================================================
+# LibreOffice
+# ============================================================
+
+if ! pgrep -x soffice.bin >/dev/null && \
+   ! pgrep -x libreoffice >/dev/null && \
+   ! pgrep -x oosplash >/dev/null; then
+
+    if [[ "$NEW_MODE" == "dark" ]]; then
+        TARGET_LO_CONF="$LO_DARK_CONF"
+    else
+        TARGET_LO_CONF="$LO_LIGHT_CONF"
+    fi
+
+    if [[ -f "$TARGET_LO_CONF" ]]; then
+        if [[ ! -f "$LO_CONF" ]] || ! cmp -s "$TARGET_LO_CONF" "$LO_CONF"; then
+            mkdir -p "$(dirname "$LO_CONF")"
+            cp -f -- "$TARGET_LO_CONF" "$LO_CONF"
+            echo "LibreOffice: $NEW_MODE"
+        fi
+    else
+        echo "Попередження: немає $TARGET_LO_CONF"
+    fi
+else
+echo "LibreOffice запущено — конфігурацію не змінено."
+fi
+
+
+# ============================================================
+# ST (Симлінк + Xresources + оновлення палітри для відкритих вікон)
+# ============================================================
+
+XRES_LIGHT="$HOME/.Xresources.light"
+XRES_DARK="$HOME/.Xresources.dark"
+
+if [[ "$NEW_MODE" == "dark" ]]; then
+    ST_TARGET="$ST_DARK"
+    XRES_FILE="$XRES_DARK"
+    COLORS=(
+        "#1D1F21" "#CC3333" "#3A8F3A" "#DDA600" "#3366CC" "#CC66CC" "#00CCCC" "#EEEEEE"
+        "#BBBBBB" "#FF3333" "#4FB36A" "#E0CC00" "#5C94FF" "#FF66FF" "#33FFFF" "#EEEEEE"
+        "#FFFFFF" "#1D1F21" "#00CCCC"
+    )
+else
+    ST_TARGET="$ST_LIGHT"
+    XRES_FILE="$XRES_LIGHT"
+    COLORS=(
+        "#2A2E2A" "#8C3B3B" "#2F6F6B" "#776A2B" "#305080" "#7A4F7A" "#2F7F7A" "#444444"
+        "#555555" "#B34A4A" "#2F6F6B" "#776A2B" "#305080" "#7A4F7A" "#2F7F7A" "#1A1A1A"
+        "#2A2E2A" "#E3E2CF" "#2F7F7A"
+    )
+fi
+
+# 1. Оновлюємо симлінк для st
+if [[ -e "$ST_TARGET" ]]; then
+    ln -sfn "$ST_TARGET" "$ST_LINK"
+else
+    echo "Попередження: не знайдено $ST_TARGET"
+fi
+
+# 2. Оновлюємо xrdb (щоб НОВІ вікна підхоплювали нову тему через XRESOURCES_PATCH)
+if [[ -f "$XRES_FILE" ]]; then
+    xrdb -merge "$XRES_FILE"
+fi
+
+# 3. Формуємо OSC-послідовність для ВЖЕ ВІДКРИТИХ вікон
+osc_seq=""
+for i in {0..15}; do
+    osc_seq+="\033]4;${i};${COLORS[$i]}\007"
+done
+osc_seq+="\033]10;${COLORS[16]}\007" # Text (Foreground)
+osc_seq+="\033]11;${COLORS[17]}\007" # Background
+osc_seq+="\033]12;${COLORS[18]}\007" # Cursor
+
+# 4. Пряме та надійне надсилання у всі псевдотермінали /dev/pts/*
+for pty in /dev/pts/[0-9]*; do
+    if [[ -w "$pty" ]]; then
+        printf "$osc_seq" > "$pty" 2>/dev/null || true
+    fi
+done
+
+# ============================================================
+# Geany
+# ============================================================
+
+if command -v geany >/dev/null 2>&1; then
+    if [[ "$NEW_MODE" == "dark" ]]; then
+        TARGET_GEANY_CONF="$GEANY_DARK"
+    else
+        TARGET_GEANY_CONF="$GEANY_LIGHT"
+    fi
+
+    if [[ -f "$TARGET_GEANY_CONF" ]]; then
+        if [[ ! -f "$GEANY_CONF" ]] || ! cmp -s "$TARGET_GEANY_CONF" "$GEANY_CONF"; then
+            mkdir -p "$(dirname "$GEANY_CONF")"
+            cp -- "$TARGET_GEANY_CONF" "$GEANY_CONF"
+            echo "Geany: $NEW_MODE"
+        fi
+    else
+        echo "Попередження: немає $TARGET_GEANY_CONF"
+    fi
+fi
+
+
+# ============================================================
+# DWM Mode File State
+# ============================================================
+
+if [[ "$NEW_MODE" == "light" ]]; then
+    touch "$LIGHTMODE_FILE"
+else
+    rm -f -- "$LIGHTMODE_FILE"
+fi
+
+
+# ============================================================
+# Перезавантаження DWM
+# ============================================================
+
+mapfile -t DWM_PIDS < <(pgrep -x dwm)
+
+if ((${#DWM_PIDS[@]})); then
+    kill -HUP "${DWM_PIDS[@]}"
+fi
+
+
+# ============================================================
+# bat
+# ============================================================
+
+mkdir -p "$BAT_CONFIG_DIR"
+
+if [[ "$NEW_MODE" == "dark" ]]; then
+    BAT_THEME="Monokai Extended"
+else
+    BAT_THEME="GitHub"
+fi
+
+NEW_BAT_CONFIG="--theme=\"$BAT_THEME\""
+CURRENT_BAT_CONFIG=""
+
+if [[ -f "$BAT_CONFIG" ]]; then
+    CURRENT_BAT_CONFIG=$(<"$BAT_CONFIG")
+fi
+
+if [[ "$CURRENT_BAT_CONFIG" != "$NEW_BAT_CONFIG" ]]; then
+    printf '%s\n' "$NEW_BAT_CONFIG" > "$BAT_CONFIG"
+fi
+
+echo "Готово: $NEW_MODE"

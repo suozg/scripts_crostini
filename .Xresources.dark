@@ -1,0 +1,22 @@
+! Terminal colors (0-15)
+st.color0:  #1D1F21
+st.color1:  #CC3333
+st.color2:  #3A8F3A
+st.color3:  #DDA600
+st.color4:  #3366CC
+st.color5:  #CC66CC
+st.color6:  #00CCCC
+st.color7:  #EEEEEE
+st.color8:  #BBBBBB
+st.color9:  #FF3333
+st.color10: #4FB36A
+st.color11: #E0CC00
+st.color12: #5C94FF
+st.color13: #FF66FF
+st.color14: #33FFFF
+st.color15: #EEEEEE
+
+! Special UI colors (на основі ваших змінних defaultfg/defaultbg/defaultcs)
+st.background:  #1D1F21
+st.foreground:  #FFFFFF
+st.cursorColor: #00CCCC
