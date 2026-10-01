@@ -143,9 +143,9 @@ pkill -HUP xsettingsd || true
 # ============================================================
 # ST (Xresources + оновлення палітри для відкритих вікон)
 # ============================================================
-
-XRES_LIGHT="$HOME/.Xresources.light"
-XRES_DARK="$HOME/.Xresources.dark"
+XRES_LIGHT="$HOME/awards/dwm/st-flexipatch/Xresources.light"
+XRES_DARK="$HOME/awards/dwm/st-flexipatch/Xresources.dark"
+XRES="$HOME/.Xresources"
 
 if [[ "$NEW_MODE" == "dark" ]]; then
     XRES_FILE="$XRES_DARK"
@@ -156,16 +156,17 @@ fi
 if [[ ! -f "$XRES_FILE" ]]; then
     echo "Попередження: немає $XRES_FILE"
 else
+    # Активний ~/.Xresources -> поточна тема
+    ln -sfn "$XRES_FILE" "$XRES"
+
     # --------------------------------------------------------
     # 1. Оновлюємо xrdb
     # --------------------------------------------------------
-
-    xrdb -merge "$XRES_FILE"
+    xrdb -merge "$XRES"
 
     # --------------------------------------------------------
     # 2. Читаємо палітру st безпосередньо з Xresources
     # --------------------------------------------------------
-
     XRDB=$(xrdb -query)
 
     declare -a COLORS
