@@ -37,7 +37,8 @@
 
 /* enums */
 enum { CurNormal, CurResize, CurMove, CurLast }; /* cursor */
-enum { SchemeNorm, SchemeSel }; /* color schemes */
+enum { SchemeNorm, SchemeSel, SchemeStatus2D }; /* color schemes */
+// enum { SchemeNorm, SchemeSel }; /* color schemes */
 enum { NetSupported, NetWMName, NetWMState, NetWMCheck,
        NetWMFullscreen, NetActiveWindow, NetWMWindowType,
        NetWMWindowTypeDialog, NetClientList, NetLast }; /* EWMH atoms */
@@ -219,6 +220,11 @@ static int xerror(Display *dpy, XErrorEvent *ee);
 static int xerrordummy(Display *dpy, XErrorEvent *ee);
 static int xerrorstart(Display *dpy, XErrorEvent *ee);
 static void zoom(const Arg *arg);
+
+
+/*Status2d*/
+static int drawstatusbar(Clr **scl, int tpad, char *stext);
+static int status2dtextlength(char *stext);
 
 /* variables */
 static const char autostartblocksh[] = "autostart_blocking.sh";
@@ -722,8 +728,10 @@ drawbar(Monitor *m)
 	/* draw status first so it can be overdrawn by tags later */
 	if (m == selmon) { /* status is only drawn on selected monitor */
 		drw_setscheme(drw, scheme[SchemeNorm]);
-		tw = TEXTW(stext) - lrpad + 2; /* 2px right padding */
-		drw_text(drw, m->ww - tw, 0, tw, bh, 0, stext, 0);
+		// tw = TEXTW(stext) - lrpad + 2; /* 2px right padding */
+		// drw_text(drw, m->ww - tw, 0, tw, bh, 0, stext, 0);
+        tw = status2dtextlength(stext);
+        drawstatusbar(&drw->scheme, lrpad / 2, stext);
 	}
 
 	for (c = m->clients; c; c = c->next) {
@@ -745,17 +753,61 @@ drawbar(Monitor *m)
 	drw_setscheme(drw, scheme[SchemeNorm]);
 	x = drw_text(drw, x, 0, w, bh, lrpad / 2, m->ltsymbol, 0);
 
-	if ((w = m->ww - tw - x) > bh) {
+	// if ((w = m->ww - tw - x) > bh) {
+	// 	if (m->sel) {
+	// 		drw_setscheme(drw, scheme[m == selmon ? SchemeSel : SchemeNorm]);
+	// 		drw_text(drw, x, 0, w, bh, lrpad / 2, m->sel->name, 0);
+	// 		if (m->sel->isfloating)
+	// 			drw_rect(drw, x + boxs, boxs, boxw, boxw, m->sel->isfixed, 0);
+	// 	} else {
+	// 		drw_setscheme(drw, scheme[SchemeNorm]);
+	// 		drw_rect(drw, x, 0, w, bh, 1, 1);
+	// 	}
+	// }
+    if ((w = m->ww - tw - x) > bh) {
 		if (m->sel) {
+			int arrow_w = TEXTW("");
+
+			/* 1. Настраиваем и рисуем ОТКРЫВАЮЩУЮ стрелку  перед заголовком:
+			   - ColFg (символ ) = фон предыдущего блока (SchemeNorm[ColBg])
+			   - ColBg (фон за ней) = фон синего заголовка (SchemeSel[ColBg]) */
+			Clr start_arrow[3];
+			start_arrow[ColFg]     = scheme[SchemeNorm][ColBg];
+			start_arrow[ColBg]     = scheme[m == selmon ? SchemeSel : SchemeNorm][ColBg];
+			start_arrow[ColBorder] = scheme[SchemeNorm][ColBorder];
+			
+			drw_setscheme(drw, start_arrow);
+			drw_text(drw, x, 0, arrow_w, bh, 0, "", 0);
+			x += arrow_w;
+
+			/* 2. Вычисляем ширину для самого текста и ЗАКРЫВАЮЩЕЙ стрелки:
+			   Заголовок растягивается на всю оставшуюся ширину w за вычетом двух стрелок */
+			int content_w = w - (arrow_w * 2);
+
+			/* 3. Рисуем синий блок с названием окна на всю оставшуюся ширину */
 			drw_setscheme(drw, scheme[m == selmon ? SchemeSel : SchemeNorm]);
-			drw_text(drw, x, 0, w, bh, lrpad / 2, m->sel->name, 0);
+			drw_text(drw, x, 0, content_w, bh, lrpad / 2, m->sel->name, 0);
+			x += content_w;
+
+			/* 4. Настраиваем и рисуем ЗАКРЫВАЮЩУЮ стрелку  в конце:
+			   - ColFg (символ ) = фон синего заголовка (SchemeSel[ColBg])
+			   - ColBg (фон за ней) = фон панели dwm (SchemeNorm[ColBg]) */
+			Clr end_arrow[3];
+			end_arrow[ColFg]     = scheme[m == selmon ? SchemeSel : SchemeNorm][ColBg];
+			end_arrow[ColBg]     = scheme[SchemeNorm][ColBg];
+			end_arrow[ColBorder] = scheme[SchemeNorm][ColBorder];
+
+			drw_setscheme(drw, end_arrow);
+			drw_text(drw, x, 0, arrow_w, bh, 0, "", 0);
+
 			if (m->sel->isfloating)
 				drw_rect(drw, x + boxs, boxs, boxw, boxw, m->sel->isfixed, 0);
 		} else {
 			drw_setscheme(drw, scheme[SchemeNorm]);
 			drw_rect(drw, x, 0, w, bh, 1, 1);
 		}
-	}
+	} 
+    
 	drw_map(drw, m->barwin, 0, 0, m->ww, bh);
 }
 
@@ -2380,6 +2432,77 @@ xerrorstart(Display *dpy, XErrorEvent *ee)
 {
 	die("dwm: another window manager is already running");
 	return -1;
+}
+
+
+int
+status2dtextlength(char *stext)
+{
+	int i = 0, w = 0;
+	int len = strlen(stext);
+	char text[len + 1];
+	int j = 0;
+
+	while (stext[i] != '\0') {
+		if (stext[i] == '^') {
+			i++;
+			while (stext[i] != '^' && stext[i] != '\0')
+				i++;
+			if (stext[i] == '^')
+				i++;
+		} else {
+			text[j++] = stext[i++];
+		}
+	}
+	text[j] = '\0';
+
+	/* Вираховуємо реальну ширину очищеного від службових тегів рядка */
+	w = TEXTW(text) - lrpad;
+	return w;
+}
+
+
+int
+drawstatusbar(Clr **scl, int tpad, char *stext)
+{
+	int i = 0, w = 0, x = selmon->ww - status2dtextlength(stext);
+	int len = strlen(stext);
+
+	Clr *curterm = scl[SchemeNorm];
+	drw_setscheme(drw, curterm);
+
+	char text[len + 1];
+	char *p;
+
+	while (stext[i] != '\0') {
+		if (stext[i] == '^') {
+			i++;
+			if (stext[i] == 'c') {
+				i++;
+				p = strtok(&stext[i], "^");
+				drw_clr_create(drw, &curterm[ColFg], p);
+				i += strlen(p);
+			} else if (stext[i] == 'b') {
+				i++;
+				p = strtok(&stext[i], "^");
+				drw_clr_create(drw, &curterm[ColBg], p);
+				i += strlen(p);
+			} else if (stext[i] == 'd') {
+				curterm = scl[SchemeNorm];
+				i++;
+			}
+		} else {
+			int j = 0;
+			while (stext[i] != '^' && stext[i] != '\0') {
+				text[j++] = stext[i++];
+			}
+			text[j] = '\0';
+			w = TEXTW(text) - lrpad;
+			drw_text(drw, x, 0, w, bh, 0, text, 0);
+			x += w;
+		}
+	}
+	return 1;
 }
 
 void

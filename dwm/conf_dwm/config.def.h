@@ -20,11 +20,13 @@ static const char *colorsdark[][3]      = {
 	/*               fg         bg         border   */
 	[SchemeNorm] = { col_gray3, col_gray1, col_gray2 },
 	[SchemeSel]  = { col_gray4, col_cyan,  col_cyan  },
+    [SchemeStatus2D] = { col_gray3, col_gray1, col_gray2 },
 };
 static const char *colorslight[][3]      = {
 	/*               fg         bg         border   */
 	[SchemeNorm] = { col_gray1, col_gray3, col_gray2 },
 	[SchemeSel]  = { col_cyan,  col_gray4, col_cyan  },
+    [SchemeStatus2D] = { col_gray1, col_gray3, col_gray2 }, 
 };
 
 /* tagging */
@@ -43,9 +45,9 @@ static const Rule rules[] = {
     { NULL,            NULL,        "Прив'язка до запису",      1 << 2,    1,     1,   -1 },
     { NULL,            NULL,        "Eye Break",                ~0,        0,     1,   -1 },
     { NULL,            NULL,        "Пошук отримувача",         1 << 2,    1,     1,   -1 },
-    { "st-256color",   NULL,        "Розклад справ та завдань", 1 << 3,    1,     0,   -1 },
-    { "st-256color",   "btop",      NULL,                       1 << 8,    1,     0,   -1 },
-    { "st-256color",   "nethogs",   NULL,                       1 << 7,    1,     0,   -1 },
+    { "St",   "orgagenda",         "Розклад справ та завдань", 1 << 3,    1,     0,   -1 },
+    { "St",   "btop",      NULL,                       1 << 8,    1,     0,   -1 },
+    { "St",   "nethogs",   NULL,                       1 << 7,    1,     0,   -1 },
 };
 
 /* layout(s) */
@@ -132,14 +134,15 @@ static const char *open_events[]  = { "/home/alex320388/.local/bin/dwm/my_tasks_
 static const char *select_color[]  = { "/home/alex320388/.local/bin/dwm/selcolor_with_dmenuklik.sh", NULL }; 
 static const char *eyebreak_force[] = { "pkill", "-USR1", "-f", "eyebreak", NULL };
 static const char *eyebreak_skip[]  = { "pkill", "-USR2", "-f", "eyebreak", NULL };
-static const char *orgagendacmd[] = { "/home/alex320388/.local/bin/st", "-t", "Розклад справ та завдань", "-e", "nvim", "-c", "autocmd VimEnter * ++once lua require('orgmode').agenda:todos()", NULL };
-static const char *translatorscmd[] = { "//home/alex320388/.local/bin/dwm/translator.sh", NULL };
+static const char *orgagendacmd[] = { "st", "-n", "orgagenda", "-t", "Розклад справ та завдань", "-e", "nvim", "-c", "autocmd VimEnter * ++once lua require('orgmode').agenda:todos()", NULL };
+static const char *translatorscmd[] = { "/home/alex320388/.local/bin/dwm/translator.sh", NULL };
 
 static const Key keys[] = {
 	/* modifier             key     function        argument */
     { MODKEY,               39,     spawn,          {.v = translatorscmd } },
     { MODKEY,              167,     spawn,          SHCMD("bash -c 'sleep 0.2; win=$(/usr/bin/xdotool getwindowfocus getwindowname); if echo \"$win\" | grep -iq libreoffice; then /usr/bin/xdotool key --clearmodifiers ctrl+S; fi'") }, /* стрелка вправо вверху */
     { MODKEY,              166,     spawn,          SHCMD("bash -c 'sleep 0.2; win=$(/usr/bin/xdotool getwindowfocus getwindowname); if echo \"$win\" | grep -iq libreoffice; then /usr/bin/xdotool key --clearmodifiers ctrl+o; fi'") }, /* стрелка влева вверху */
+    { ControlMask,          51,     spawn,          SHCMD("bash -c 'st -e lf'") }, /* \ */
     { MODKEY,               38,     spawn,          {.v = orgagendacmd } },  // a 
     { MODKEY,               72,     spawn,          {.v = eyebreak_force } },// F6 
     { MODKEY,               73,     spawn,          {.v = eyebreak_skip } }, // F7
