@@ -2435,7 +2435,7 @@ xerrorstart(Display *dpy, XErrorEvent *ee)
 }
 
 
-int
+static int
 status2dtextlength(char *stext)
 {
 	int i = 0, w = 0;
@@ -2446,64 +2446,118 @@ status2dtextlength(char *stext)
 	while (stext[i] != '\0') {
 		if (stext[i] == '^') {
 			i++;
-			while (stext[i] != '^' && stext[i] != '\0')
+			if (stext[i] == 'c' || stext[i] == 'b') {
 				i++;
-			if (stext[i] == '^')
+				while (stext[i] != '^' && stext[i] != '\0')
+					i++;
+				if (stext[i] == '^')
+					i++;
+			} else if (stext[i] == 'd') {
 				i++;
+				if (stext[i] == '^')
+					i++;
+			}
 		} else {
 			text[j++] = stext[i++];
 		}
 	}
 	text[j] = '\0';
 
-	/* Вираховуємо реальну ширину очищеного від службових тегів рядка */
 	w = TEXTW(text) - lrpad;
 	return w;
 }
 
-
-int
+static int
 drawstatusbar(Clr **scl, int tpad, char *stext)
 {
-	int i = 0, w = 0, x = selmon->ww - status2dtextlength(stext);
-	int len = strlen(stext);
+	int i = 0, w = 0;
+	int stext_len = strlen(stext);
+	if (stext_len == 0)
+		return 1;
 
-	Clr *curterm = scl[SchemeNorm];
-	drw_setscheme(drw, curterm);
+	int x = selmon->ww - status2dtextlength(stext);
 
-	char text[len + 1];
-	char *p;
+	static Clr status_scheme[3];
+	static int scheme_initialized = 0;
+
+	if (!scheme_initialized) {
+		status_scheme[ColFg] = scl[SchemeNorm][ColFg];
+		status_scheme[ColBg] = scl[SchemeNorm][ColBg];
+		status_scheme[ColBorder] = scl[SchemeNorm][ColBorder];
+		scheme_initialized = 1;
+	}
+
+	drw_setscheme(drw, scl[SchemeNorm]);
+
+	char text[2048];
+	int j = 0;
 
 	while (stext[i] != '\0') {
 		if (stext[i] == '^') {
+			if (j > 0) {
+				text[j] = '\0';
+				w = TEXTW(text) - lrpad;
+				if (w > 0) {
+					drw_text(drw, x, 0, w, bh, 0, text, 0);
+					x += w;
+				}
+				j = 0;
+			}
+
 			i++;
-			if (stext[i] == 'c') {
+
+			if (stext[i] == 'c' || stext[i] == 'b') {
+				char type = stext[i];
 				i++;
-				p = strtok(&stext[i], "^");
-				drw_clr_create(drw, &curterm[ColFg], p);
-				i += strlen(p);
-			} else if (stext[i] == 'b') {
-				i++;
-				p = strtok(&stext[i], "^");
-				drw_clr_create(drw, &curterm[ColBg], p);
-				i += strlen(p);
+
+				char colorbuf[16] = {0};
+				int clen = 0;
+				while (stext[i] != '^' && stext[i] != '\0' && clen < sizeof(colorbuf) - 1) {
+					colorbuf[clen++] = stext[i++];
+				}
+				if (stext[i] == '^')
+					i++;
+
+				if (clen > 0) {
+					Colormap cmap = DefaultColormap(drw->dpy, drw->screen);
+					if (type == 'c') {
+						if (status_scheme[ColFg].pixel != scl[SchemeNorm][ColFg].pixel)
+							XFreeColors(drw->dpy, cmap, &status_scheme[ColFg].pixel, 1, 0);
+						drw_clr_create(drw, &status_scheme[ColFg], colorbuf);
+					} else {
+						if (status_scheme[ColBg].pixel != scl[SchemeNorm][ColBg].pixel)
+							XFreeColors(drw->dpy, cmap, &status_scheme[ColBg].pixel, 1, 0);
+						drw_clr_create(drw, &status_scheme[ColBg], colorbuf);
+					}
+					drw_setscheme(drw, status_scheme);
+				}
 			} else if (stext[i] == 'd') {
-				curterm = scl[SchemeNorm];
 				i++;
+				if (stext[i] == '^')
+					i++;
+
+				drw_setscheme(drw, scl[SchemeNorm]);
 			}
 		} else {
-			int j = 0;
-			while (stext[i] != '^' && stext[i] != '\0') {
+			if (j < sizeof(text) - 1) {
 				text[j++] = stext[i++];
+			} else {
+				i++;
 			}
-			text[j] = '\0';
-			w = TEXTW(text) - lrpad;
-			drw_text(drw, x, 0, w, bh, 0, text, 0);
-			x += w;
 		}
 	}
+
+	if (j > 0) {
+		text[j] = '\0';
+		w = TEXTW(text) - lrpad;
+		if (w > 0) {
+			drw_text(drw, x, 0, w, bh, 0, text, 0);
+		}
+	}
+
 	return 1;
 }
+
 
 void
 zoom(const Arg *arg)
