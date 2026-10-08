@@ -3,7 +3,14 @@
 # Функція для отримання індикатора Caps Lock
 get_caps() {
     if xset q 2>/dev/null | grep -q "Caps Lock:\s*on"; then
-        echo "🔒" # Текст/іконка при включеному Caps Lock
+        #echo "🔒" # Текст/іконка при включеному Caps Lock
+        if [ -f "$HOME/.lightmode" ]; then
+            # светлая тема
+            echo "^c#FF0000^ 🔒 ^c#222222^^b#BBBBBB^"
+        else
+            # темная тема 
+            echo "^c#FF0000^ 🔒 ^c#BBBBBB^^b#222222^"
+        fi
     fi
 }
 
@@ -17,6 +24,7 @@ if [ "$1" = "status" ]; then
     fi
     exit 0
 fi
+
 
 # 2. Логіка перемикання розкладки
 current=$(xkb-switch -p)
