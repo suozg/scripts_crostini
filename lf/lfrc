@@ -15,11 +15,20 @@ set number
 set wrapscroll
 set watch
 
-# Визуальные индикаторы
+# Визуальные индикаторы статусной строки
 set copyfmt  "\033[7;33m"  # инвертированный желтый для скопированных
 set cutfmt   "\033[7;31m"  # инвертированный красный для вырезанных  
 set selectfmt "\033[7;35m" # инвертированный фиолетовый для выбранных
 set numberfmt "\033[90m"   # серые номера (не отвлекают)
+
+# Верхній рядок (prompt)
+set promptfmt "\033[38;2;131;165;152m░▒▓\033[38;2;40;40;40m\033[48;2;131;165;152m 󰙅 \033[38;2;131;165;152m\033[48;2;69;133;136m\033[38;2;251;241;199m %d%f \033[0m\033[38;2;69;133;136m\033[49m\033[0m"
+# Рядок стану (статус-лайн)
+set statfmt "\033[48;2;69;133;136m\033[38;2;251;241;199m %p \033[0m\033[38;2;69;133;136m\033[48;2;131;165;152m\033[38;2;40;40;40m %u %g \033[0m\033[38;2;131;165;152m\033[48;2;80;95;97m\033[38;2;251;241;199m %s %t \033[0m\033[38;2;80;95;97m\033[49m\033[0m"
+#set statfmt "%p %u %g %s %t"
+# Рядок дій
+set rulerfmt "\033[38;2;235;219;178m %a \033[0m|\033[38;2;142;192;124m %s selected \033[0m|\033[38;2;250;189;47m %c copy \033[0m|\033[38;2;251;73;52m %m cut \033[0m|%i/%t"
+
 
 # ---------- INFO ------------
 map i
@@ -592,8 +601,8 @@ cmd shrink_pdf ${{
     printf "Швидке стиснення PDF завершено. Натисніть Enter..."
     read -r _ 
 }}
-map Cp shrink_pdf
-map Сз shrink_pdf
+map Cs shrink_pdf
+map Сі shrink_pdf
 
 # ---- максимальне стиснення PDF
 cmd shrink_pdf_max ${{
@@ -605,8 +614,8 @@ cmd shrink_pdf_max ${{
     printf "Максимальне стиснення PDF завершено. Натисніть Enter..."
     read -r _ 
 }}
-map CP shrink_pdf_max
-map СЗ shrink_pdf_max
+map CS shrink_pdf_max
+map СІ shrink_pdf_max
 
 
 # =====================
@@ -628,17 +637,16 @@ map СФ word_to_awards
 
 
 # =====================
-# Конвертація в CSV (перший аркуш)
+# Конвертація в CSV
 # =====================
-cmd conv_xls2csv ${{
+cmd xls_csv ${{
     for f in $fx; do
-        # 44 означає кому як роздільник полів, 76 — кодування UTF-8
-        libreoffice --headless --convert-to csv:"Text - txt - csv (StarCalc)":44,76,34,1 --outdir "$(dirname "$f")" "$f"
+        xls_csv.py "$f"
     done
     lf -remote "send $id reload"
 }}
-map CX conv_xls2csv
-map СЧ conv_xls2csv 
+map CX xls_csv
+map СЧ xls_csv 
 
 
 # =====================
@@ -883,7 +891,7 @@ cmd print ${{
     files="$fx"
     [ -z "$files" ] && exit 0
 
-    # 1. Фільтрація розширень
+    # 1. Фільтрація розширень (додано jpg, jpeg, png, webp)
     rm -f /tmp/lf_print_valid.tmp /tmp/lf_print_invalid.tmp
 
     echo "$files" | while IFS= read -r file; do
@@ -892,7 +900,7 @@ cmd print ${{
         ext=$(echo "$ext" | tr '[:upper:]' '[:lower:]')
 
         case "$ext" in
-            pdf|txt|odt|doc|docx|xls|xlsx)
+            pdf|txt|odt|doc|docx|xls|xlsx|jpg|jpeg|png|webp)
                 printf "%s\n" "$file" >> /tmp/lf_print_valid.tmp
                 ;;
             *)
@@ -914,7 +922,7 @@ cmd print ${{
     fi
 
     # 2. Вибір принтера через fzf
-    printer=$(lpstat -e 2>/dev/null | fzf --prompt="Оберіть принтер: " --height=40% --reverse)
+    printer=$(lpstat -e 2>/dev/null | fzf --prompt="Оберіть принтер: " --height=30% --layout=default) 
     if [ -z "$printer" ]; then
         rm -f /tmp/lf_print_valid.tmp
         exit 0
@@ -942,19 +950,33 @@ cmd print ${{
         case "$ext" in
             pdf)
                 tmp_pdf=$(mktemp --suffix=.pdf)
-                # Швидко перемальовуємо PDF за допомогою pdftocairo
                 if command -v pdftocairo >/dev/null 2>&1; then
                     pdftocairo -pdf "$file" "$tmp_pdf"
                     lp -d "$printer" "$tmp_pdf"
                 else
-                    # Резервний варіант, якщо pdftocairo не встановлено
                     pdf2ps "$file" - | ps2pdf - "$tmp_pdf"
                     lp -d "$printer" "$tmp_pdf"
                 fi
                 rm -f "$tmp_pdf"
                 ;;
             txt)
-                lp -d "$printer" "$file"
+                # Передаємо прапорець книжкової орієнтації та підганяємо під сторінку
+                lp -d "$printer" -o orientation-requested=3 -o fit-to-page "$file"
+                ;;
+            jpg|jpeg|png|webp)
+                tmp_pdf=$(mktemp --suffix=.pdf)
+                # Конвертація зображення в PDF для правильного масштабування
+                if command -v img2pdf >/dev/null 2>&1; then
+                    img2pdf "$file" -o "$tmp_pdf"
+                    lp -d "$printer" "$tmp_pdf"
+                elif command -v convert >/dev/null 2>&1; then
+                    convert "$file" "$tmp_pdf"
+                    lp -d "$printer" "$tmp_pdf"
+                else
+                    # Якщо немає утиліт конвертації, друкуємо напряму через CUPS з масштабуванням
+                    lp -d "$printer" -o fit-to-page "$file"
+                fi
+                rm -f "$tmp_pdf" 2>/dev/null
                 ;;
             odt|doc|docx|xls|xlsx)
                 tmp_dir=$(mktemp -d)
@@ -977,6 +999,20 @@ cmd print ${{
 map Cp print
 map Сз print
 
+# =====================
+# COUNT FILES & SIZE
+# =====================
+cmd count_files ${{
+    clear
+    echo "Підрахунок файлів та розміру..."
+    find . -type f -printf "%s\n" | awk -v dir="$PWD" '{s+=$1; c++} END {printf "\nКаталог: %s\nФайлів: %d\nРозмір: %.2f MB (байтів: %d)\n", dir, c, s/1048576, s}'
+    echo ""
+    echo -n "Натисніть Enter для повернення..."
+    read -r _
+}}
+
+map Cf count_files
+map Са count_files
 
 # =====================
 # UA BINDINGS
