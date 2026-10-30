@@ -17,7 +17,7 @@ THEMES_DIR="$HOME/.themes"
 WALLPAPER="$THEMES_DIR/wallpaper.jpg"
 
 LIGHTSOLID="#E3E2CF"
-DARKSOLID="#2A2E2A"
+DARKSOLID="#232323"
 
 LIGHTMODE_FILE="$HOME/.lightmode"
 
@@ -80,16 +80,28 @@ echo "Режим: $NEW_MODE"
 # Wallpaper
 # ============================================================
 
+WALLPAPER_ORIGINAL="$THEMES_DIR/wallpaper.jpg"
+WALLPAPER_TMP="/tmp/wallpaper_active.jpg"
+
 if [[ "$NEW_MODE" == "light" ]]; then
     SOLID="$LIGHTSOLID"
+    # У світлому режимі копіюємо оригінал у /tmp (або можна брати напряму з themes)
+    cp "$WALLPAPER_ORIGINAL" "$WALLPAPER_TMP"
 else
     SOLID="$DARKSOLID"
+    # У темному режимі створюємо затемнену версію одразу в /tmp
+    if command -v magick >/dev/null 2>&1; then
+        magick "$WALLPAPER_ORIGINAL" -evaluate multiply 0.5 "$WALLPAPER_TMP"
+    elif command -v convert >/dev/null 2>&1; then
+        convert "$WALLPAPER_ORIGINAL" -evaluate multiply 0.5 "$WALLPAPER_TMP"
+    else
+        cp "$WALLPAPER_ORIGINAL" "$WALLPAPER_TMP"
+    fi
 fi
 
 if command -v hsetroot >/dev/null 2>&1; then
-    hsetroot -solid "$SOLID" -center "$WALLPAPER"
+    hsetroot -solid "$SOLID" -center "$WALLPAPER_TMP"
 fi
-
 
 # ============================================================
 # GTK
