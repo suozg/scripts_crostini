@@ -1,5 +1,12 @@
 #!/bin/bash
 
+sudo mountpoint -q /tmp || \
+sudo mount -t tmpfs -o mode=1777,size=1G tmpfs /tmp
+
+sudo mkdir -p /tmp/.X11-unix
+sudo chown root:root /tmp/.X11-unix
+sudo chmod 1777 /tmp/.X11-unix
+
 LOCK="/tmp/rundwm.lock"
 
 if [ -f "$LOCK" ] && kill -0 "$(cat "$LOCK")" 2>/dev/null; then
@@ -7,13 +14,7 @@ if [ -f "$LOCK" ] && kill -0 "$(cat "$LOCK")" 2>/dev/null; then
 fi
 
 echo $$ > "$LOCK"
-
-sudo mountpoint -q /tmp || \
-sudo mount -t tmpfs -o mode=1777,size=1G tmpfs /tmp
-
-sudo mkdir -p /tmp/.X11-unix
-sudo chown root:root /tmp/.X11-unix
-sudo chmod 1777 /tmp/.X11-unix
+trap 'rm -f "$LOCK"' EXIT
 
 touch /tmp/eyebreak_status
 
@@ -27,8 +28,7 @@ if ! pgrep -f "Xephyr :20" > /dev/null; then
     Xephyr -br -fullscreen -resizeable :20 &
     XEPHYR_PID=$!
 else
-    # Якщо Xephyr вже запущений, виходимо
-    rm -f "$LOCK"
+    # Якщо Xephyr запущений, виходимо
     exit 0
 fi
 
