@@ -105,4 +105,7 @@ BACKGROUND_PIDS+=($!)
 echo "Starting DWM on :20..."
 DISPLAY=:20 dwm
 
+# вимикаємо контейнер linux
+sudo shutdown -h now
+
 
