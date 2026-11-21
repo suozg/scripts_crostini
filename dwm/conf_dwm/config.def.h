@@ -37,17 +37,17 @@ static const Rule rules[] = {
 	 *	WM_CLASS(STRING) = instance, class
 	 *	WM_NAME(STRING) = title
 	 */
-	/* class, instance, title, tags, mask, switchtotag, isfloating, monitor */
-	{ "Xmessage",      NULL,        NULL,                       0,         0,     1,   -1 },
-	{ "Gimp",          NULL,        NULL,                       1 << 4,    1,     0,   -1 },
-	{ "Awardswx",      NULL,        NULL,                       1 << 2,    1,     0,   -1 },
-	{ "Drs_wx",        NULL,        NULL,                       1 << 1,    1,     0,   -1 },
-    { NULL,            NULL,        "Прив'язка до запису",      1 << 2,    1,     1,   -1 },
-    { NULL,            NULL,        "Eye Break",                ~0,        0,     1,   -1 },
-    { NULL,            NULL,        "Пошук отримувача",         1 << 2,    1,     1,   -1 },
-    { "St",   "orgagenda",         "Розклад справ та завдань", 1 << 3,    1,     0,   -1 },
-    { "St",   "btop",      NULL,                       1 << 8,    1,     0,   -1 },
-    { "St",   "nethogs",   NULL,                       1 << 7,    1,     0,   -1 },
+	/* class,      instance, title,                 tags, mask, switchtotag, isfloating, monitor */
+	{ "Xmessage",      NULL,  NULL,                       0,         0,     1,   -1 },
+	{ "Gimp",          NULL,  NULL,                       1 << 4,    1,     0,   -1 },
+	{ "Awardswx",      NULL,  NULL,                       1 << 2,    1,     0,   -1 },
+	{ "Drs_wx",        NULL,  NULL,                       1 << 1,    1,     0,   -1 },
+    { NULL,            NULL,  "Прив'язка до запису",      1 << 2,    1,     1,   -1 },
+	{ "St",   "Drs_textual",  NULL,                       1 << 1,    1,     0,   -1 },
+    { NULL,            NULL,  "Eye Break",                ~0,        0,     1,   -1 },
+    { NULL,            NULL,  "Пошук отримувача",         1 << 2,    1,     1,   -1 },
+    { "St",     "orgagenda",  "Розклад справ та завдань", 1 << 3,    1,     0,   -1 },
+    { "St",       "nethogs",  NULL,                       1 << 7,    1,     0,   -1 },
 };
 
 /* layout(s) */
@@ -58,7 +58,8 @@ static const int lockfullscreen = 1; /* 1 will force focus on the fullscreen win
 static const int refreshrate = 120;  /* refresh rate (per second) for client move/resize */
 
 static const Layout layouts[] = {
-	/* symbol     arrange function */
+	/* symbol    arrange function */
+    { "DD",      doubledeck },
     { "[]=",     tile },    /* Мозаичный режим (Tiling) */
     { "><>",     NULL },    /* Плавающий режим (Floating) */
     { "[M]",     monocle },     /* Полноекранний режим (Monocle) */
@@ -123,7 +124,7 @@ static const char *themecmd[]  = { "/home/alex320388/.local/bin/set-theme-based-
 static const char *open_radio[]  = { "/home/alex320388/.local/bin/dwm/radio.sh", NULL };
 static const char *open_calc[]  = { "/home/alex320388/.local/bin/dwm/calculator.sh", NULL };
 static const char *open_help[]  = { "/home/alex320388/.local/bin/dwm/help.sh", NULL };
-static const char *nakaz[]  = { "/home/alex320388/.local/bin/drs_wx.bin", NULL };
+static const char *nakaz[]  = { "/home/alex320388/.local/bin/drs.sh", NULL };
 static const char *awards[]  = { "/home/alex320388/.local/bin/awardstart", NULL };
 static const char *getclpb[]  = { "/home/alex320388/.local/bin/dwm/get_clipb.sh", NULL };
 static const char *sendclpb[]  = { "/home/alex320388/.local/bin/dwm/send_clipb.sh", NULL };
@@ -149,17 +150,17 @@ static const Key keys[] = {
     { MODKEY|ControlMask,   28,     spawn,          {.v = themecmd } },      // t
 	{ MODKEY,               33,     spawndmenu,     {0} },                   // p
 	{ MODKEY,               36,     zoom,           {0} },                   // Return
-	{ MODKEY|ShiftMask,     39,     spawn,          {.v = select_color } },  // s
+	{ MODKEY|ShiftMask,     39,     spawn,          {.v = select_color } },  // S
 	{ MODKEY|ControlMask,   36,     spawn,          {.v = termcmd } },       // Return
 	{ MODKEY,               181,    spawn,          {.v = open_calc } },     // Refresh
 	{ MODKEY,               51,     spawn,          {.v = open_events } },   // / "\"
 	{ MODKEY,               52,     spawn,          {.v = getclpb } },       // z
-	{ MODKEY|ShiftMask,     52,     spawn,          {.v = sendclpb } },      // z
+	{ MODKEY|ShiftMask,     52,     spawn,          {.v = sendclpb } },      // Z
 	{ MODKEY,               53,     spawn,          {.v = clipboardmenu } }, // x
 	{ MODKEY|ShiftMask,     53,     spawn,          {.v = clipdelcmd } },    // x
 	{ MODKEY,               57,     spawn,          {.v = awards } },        // n
-	{ MODKEY|ShiftMask,     57,     spawn,          {.v = nakaz } },         // n
-	{ MODKEY,               27,     spawn,          {.v = open_radio } },    // r
+	{ MODKEY|ShiftMask,     57,     spawn,          {.v = nakaz } },         // N
+	{ MODKEY|ShiftMask,     27,     spawn,          {.v = open_radio } },    // R
 	{ MODKEY,               61,     spawn,          {.v = open_help } },     // /
 	{ ControlMask,          65,     spawn,          {.v = switchkeyb } },    // space
 	{ MODKEY,               56,     togglebar,      {0} },                   // b
@@ -169,19 +170,20 @@ static const Key keys[] = {
 	{ MODKEY,               40,     incnmaster,     {.i = -1 } },            // d
 	{ MODKEY,               43,     setmfact,       {.f = -0.05} },          // h
 	{ MODKEY,               46,     setmfact,       {.f = +0.05} },          // l
-    { MODKEY|ShiftMask,     28,     view,           {0} },                   // t
-	{ MODKEY|ShiftMask,     54,     killclient,     {0} },                   // c
-	{ MODKEY,               28,     setlayout,      {.v = &layouts[0]} },    // t
-	{ MODKEY,               41,     setlayout,      {.v = &layouts[1]} },    // f
-	{ MODKEY,               58,     setlayout,      {.v = &layouts[2]} },    // m
+    { MODKEY|ShiftMask,     28,     view,           {0} },                   // T
+	{ MODKEY|ShiftMask,     54,     killclient,     {0} },                   // C
+	{ MODKEY,               28,     setlayout,      {.v = &layouts[1]} },    // t
+	{ MODKEY,               41,     setlayout,      {.v = &layouts[2]} },    // f
+	{ MODKEY,               58,     setlayout,      {.v = &layouts[3]} },    // m
+	{ MODKEY,               27,     setlayout,      {.v = &layouts[0]} },    // r                                                                            //
 	{ MODKEY,               65,     setlayout,      {0} },                   // space
 	{ MODKEY|ControlMask,   65,     togglefloating, {0} },                   // space
 	{ MODKEY,               19,     view,           {.ui = ~0 } },           // 0
-	{ MODKEY|ShiftMask,     19,     tag,            {.ui = ~0 } },           // 0
+	{ MODKEY|ShiftMask,     19,     tag,            {.ui = ~0 } },           // )
 	{ MODKEY,               59,     focusmon,       {.i = -1 } },            // comma
 	{ MODKEY,               60,     focusmon,       {.i = +1 } },            // period
-	{ MODKEY|ShiftMask,     59,     tagmon,         {.i = -1 } },            // comma
-	{ MODKEY|ShiftMask,     60,     tagmon,         {.i = +1 } },            // period
+	{ MODKEY|ShiftMask,     59,     tagmon,         {.i = -1 } },            // <
+	{ MODKEY|ShiftMask,     60,     tagmon,         {.i = +1 } },            // >
 	TAGKEYS(                10,                     0)                       // 1
 	TAGKEYS(                11,                     1)                       // 2
 	TAGKEYS(                12,                     2)                       // 3
@@ -198,16 +200,16 @@ static const Key keys[] = {
 /* click can be ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle, ClkClientWin, or ClkRootWin */
 static const Button buttons[] = {
 	/* click                event mask      button          function        argument */
-	{ ClkLtSymbol,          0,              Button1,        setlayout,      {0} },
+	/* { ClkLtSymbol,          0,              Button1,        setlayout,      {0} },
 	{ ClkLtSymbol,          0,              Button3,        setlayout,      {.v = &layouts[2]} },
 	{ ClkWinTitle,          0,              Button2,        zoom,           {0} },
-	{ ClkStatusText,        0,              Button2,        spawn,          {.v = termcmd } },
+	{ ClkStatusText,        0,              Button2,        spawn,          {.v = termcmd } }, */
 	{ ClkClientWin,         MODKEY,         Button1,        movemouse,      {0} },
-	{ ClkClientWin,         MODKEY,         Button2,        togglefloating, {0} },
-	{ ClkClientWin,         MODKEY,         Button3,        resizemouse,    {0} },
-	{ ClkTagBar,            0,              Button1,        view,           {0} },
+	/* { ClkClientWin,         MODKEY,         Button3,        togglefloating, {0} }, */
+	{ ClkClientWin,         MODKEY|ControlMask,         Button1,        resizemouse,    {0} },
+	/* { ClkTagBar,            0,              Button1,        view,           {0} },
 	{ ClkTagBar,            0,              Button3,        toggleview,     {0} },
 	{ ClkTagBar,            MODKEY,         Button1,        tag,            {0} },
-	{ ClkTagBar,            MODKEY,         Button3,        toggletag,      {0} },
+	{ ClkTagBar,            MODKEY,         Button3,        toggletag,      {0} }, */
 };
 
