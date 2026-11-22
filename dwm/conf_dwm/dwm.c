@@ -146,8 +146,9 @@ static void detachstack(Client *c);
 static Monitor *dirtomon(int dir);
 static void doubledeck(Monitor *m);
 static void drawbar(Monitor *m);
+static void autobar(Monitor *m); /* оголошення функції автоприховуваеня панелі */
 static void drawbars(void);
-/* static void enternotify(XEvent *e); */
+static void enternotify(XEvent *e); 
 static void expose(XEvent *e);
 static void focus(Client *c);
 static void focusin(XEvent *e);
@@ -246,7 +247,7 @@ static void (*handler[LASTEvent]) (XEvent *) = {
 	[ConfigureRequest] = configurerequest,
 	[ConfigureNotify] = configurenotify,
 	[DestroyNotify] = destroynotify,
-	/* [EnterNotify] = enternotify, */
+	[EnterNotify] = enternotify, 
 	[Expose] = expose,
 	[FocusIn] = focusin,
 	[KeyPress] = keypress,
@@ -842,7 +843,7 @@ drawbars(void)
 		drawbar(m);
 }
 
-/*void
+void
 enternotify(XEvent *e)
 {
 	Client *c;
@@ -860,7 +861,8 @@ enternotify(XEvent *e)
 		return;
 	focus(c);
 }
-*/
+
+
 void
 expose(XEvent *e)
 {
@@ -1171,8 +1173,9 @@ manage(Window w, XWindowAttributes *wa)
 	XkbGetState(dpy, XkbUseCoreKbd, &kbd_state);
 	c->kbdgrp = kbd_state.group;
 	arrange(c->mon);
+    autobar(c->mon); /* автосокритие панели если нет окон в теге */
 	XMapWindow(dpy, c->win);
-	focus(NULL);
+	focus(NULL);    
 }
 
 void
@@ -2105,6 +2108,7 @@ unmanage(Client *c, int destroyed)
 	focus(NULL);
 	updateclientlist();
 	arrange(m);
+    autobar(m); /* автосокритие панели при отсутствии окон в теге */
 }
 
 void
@@ -2154,6 +2158,27 @@ updatebarpos(Monitor *m)
 		m->wy = m->topbar ? m->wy + bh : m->wy;
 	} else
 		m->by = -bh;
+}
+
+void
+/* функція автоприховування панели при відсутності вікон в тезі */
+autobar(Monitor *m)
+{
+	int has_client = 0;
+	Client *c;
+
+	for (c = m->clients; c; c = c->next) {
+		if (ISVISIBLE(c)) {
+			has_client = 1;
+			break;
+		}
+	}
+
+	if (m->showbar == has_client) {
+		m->showbar = !has_client;
+		updatebarpos(m);
+		arrange(m);
+	}
 }
 
 void
@@ -2366,6 +2391,7 @@ view(const Arg *arg)
 		selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
 	focus(NULL);
 	arrange(selmon);
+    autobar(selmon); /* автосокритие панели если нет окон в теге */
 }
 
 void
