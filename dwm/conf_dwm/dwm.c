@@ -1349,29 +1349,13 @@ propertynotify(XEvent *e)
 	}
 }
 
-/* static void */
-/* quit(const Arg *arg) */
-/* { */
-/*     FILE *fp; */
-/*     char buf[8]; */
-
-/*     fp = popen("printf 'НІ\nТАК' | dmenu -i -p 'Вийти з DWM?'", "r"); */
-/*     if (fp == NULL) */
-/*         return; */
-/*     if (fgets(buf, sizeof(buf), fp) != NULL) { */
-/*         if (strstr(buf, "ТАК")) */
-/*             running = 0; */
-/*     } */
-/*     pclose(fp); */
-/* } */
-
 static void
 quit(const Arg *arg)
 {
     FILE *fp;
     char buf[8];
-    char command[512];
-
+    char command[768];
+    char prompt[128];
     char lightmode_path[PATH_MAX];
 
     const char *nb;
@@ -1379,18 +1363,31 @@ quit(const Arg *arg)
     const char *sb;
     const char *sf;
 
+    int open_windows = 0;
+    Monitor *m;
+    Client *c;
+
+    for (m = mons; m; m = m->next)
+        for (c = m->clients; c; c = c->next)
+            open_windows++;
+
+    if (open_windows == 0)
+        snprintf(prompt, sizeof(prompt),
+                 "Вийти з DWM?");
+    else
+        snprintf(prompt, sizeof(prompt),
+                 "Вийти з DWM? Незакритих вікон: %d",
+                 open_windows);
+
     snprintf(lightmode_path, sizeof(lightmode_path),
              "%s/.lightmode", getenv("HOME"));
 
-    /* Проверяем наличие ~/.lightmode */
     if (access(lightmode_path, F_OK) == 0) {
-        /* Светлая тема */
         nb = "#eeeeee";
         nf = "#222222";
         sb = "#005577";
         sf = "#eeeeee";
     } else {
-        /* Стандартная тёмная */
         nb = col_gray1;
         nf = col_gray3;
         sb = col_cyan;
@@ -1398,11 +1395,12 @@ quit(const Arg *arg)
     }
 
     snprintf(command, sizeof(command),
-             "printf 'НІ\nТАК' | dmenu -i "
-             "-p 'Вийти з DWM?' "
+             "printf 'НІ\\nТАК' | dmenu -i "
+             "-p '%s' "
              "-fn '%s' "
              "-nb '%s' -nf '%s' "
              "-sb '%s' -sf '%s'",
+             prompt,
              dmenufont,
              nb, nf,
              sb, sf);
@@ -1418,29 +1416,6 @@ quit(const Arg *arg)
 
     pclose(fp);
 }
-
-// static void
-// quit(const Arg *arg)
-// {
-//     FILE *fp;
-//     char buf[8];
-//     char command[256];
-
-//     /* Формуємо команду, використовуючи змінні кольорів з config.h */
-//     snprintf(command, sizeof(command), 
-//              "printf 'НІ\nТАК' | dmenu -i -p 'Вийти з DWM?' -fn '%s' -nb '%s' -nf '%s' -sb '%s' -sf '%s'", 
-//              dmenufont, col_gray1, col_gray3, col_cyan, col_gray4);
-
-//     fp = popen(command, "r");
-//     if (fp == NULL)
-//         return;
-
-//     if (fgets(buf, sizeof(buf), fp) != NULL) {
-//         if (strstr(buf, "ТАК"))
-//             running = 0;
-//     }
-//     pclose(fp);
-// }
 
 Monitor *
 recttomon(int x, int y, int w, int h)
@@ -2174,9 +2149,10 @@ autobar(Monitor *m)
 		}
 	}
 
-	if (m->showbar == has_client) {
+	if (m->showbar != !has_client) {
 		m->showbar = !has_client;
 		updatebarpos(m);
+		XMoveResizeWindow(dpy, m->barwin, m->wx, m->by, m->ww, bh);
 		arrange(m);
 	}
 }
