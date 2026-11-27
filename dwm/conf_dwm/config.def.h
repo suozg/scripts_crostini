@@ -137,9 +137,10 @@ static const char *eyebreak_force[] = { "pkill", "-USR1", "-f", "eyebreak", NULL
 static const char *eyebreak_skip[]  = { "pkill", "-USR2", "-f", "eyebreak", NULL };
 static const char *orgagendacmd[] = { "st", "-n", "orgagenda", "-t", "Розклад справ та завдань", "-e", "nvim", "-c", "autocmd VimEnter * ++once lua require('orgmode').agenda:todos()", NULL };
 static const char *translatorscmd[] = { "/home/alex320388/.local/bin/dwm/translator.sh", NULL };
+static const char *winlistcmd[] = { "/bin/sh", "-c", "/home/alex320388/.local/bin/dwm/dmenu-windows.sh", NULL };
 
 static const Key keys[] = {
-	/* modifier             key     function        argument */
+	/* modifier             key(run xev)     function        argument */
     { MODKEY,               39,     spawn,          {.v = translatorscmd } },
     { MODKEY,              167,     spawn,          SHCMD("bash -c 'sleep 0.2; win=$(/usr/bin/xdotool getwindowfocus getwindowname); if echo \"$win\" | grep -iq libreoffice; then /usr/bin/xdotool key --clearmodifiers ctrl+S; fi'") }, /* стрелка вправо вверху */
     { MODKEY,              166,     spawn,          SHCMD("bash -c 'sleep 0.2; win=$(/usr/bin/xdotool getwindowfocus getwindowname); if echo \"$win\" | grep -iq libreoffice; then /usr/bin/xdotool key --clearmodifiers ctrl+o; fi'") }, /* стрелка влева вверху */
@@ -161,6 +162,7 @@ static const Key keys[] = {
 	{ MODKEY,               57,     spawn,          {.v = awards } },        // n
 	{ MODKEY|ShiftMask,     57,     spawn,          {.v = nakaz } },         // N
 	{ MODKEY|ShiftMask,     27,     spawn,          {.v = open_radio } },    // R
+    { MODKEY,               71,     spawn,          {.v = winlistcmd } },    // F5
 	{ MODKEY,               61,     spawn,          {.v = open_help } },     // /
 	{ ControlMask,          65,     spawn,          {.v = switchkeyb } },    // space
 	{ MODKEY,               56,     togglebar,      {0} },                   // b
@@ -200,16 +202,16 @@ static const Key keys[] = {
 /* click can be ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle, ClkClientWin, or ClkRootWin */
 static const Button buttons[] = {
 	/* click                event mask      button          function        argument */
-	/* { ClkLtSymbol,          0,              Button1,        setlayout,      {0} },
+    { ClkLtSymbol,          0,              Button1,        setlayout,      {0} },
 	{ ClkLtSymbol,          0,              Button3,        setlayout,      {.v = &layouts[2]} },
 	{ ClkWinTitle,          0,              Button2,        zoom,           {0} },
-	{ ClkStatusText,        0,              Button2,        spawn,          {.v = termcmd } }, */
+	{ ClkStatusText,        0,              Button2,        spawn,          {.v = termcmd } }, 
 	{ ClkClientWin,         MODKEY,         Button1,        movemouse,      {0} },
-	/* { ClkClientWin,         MODKEY,         Button3,        togglefloating, {0} }, */
-	{ ClkClientWin,         MODKEY|ControlMask,         Button1,        resizemouse,    {0} },
-	/* { ClkTagBar,            0,              Button1,        view,           {0} },
+	{ ClkClientWin,         MODKEY|ControlMask,       Button1,        togglefloating, {0} }, 
+	{ ClkClientWin,         MODKEY|ShiftMask,         Button1,        resizemouse,    {0} },
+	{ ClkTagBar,            0,              Button1,        view,           {0} },
 	{ ClkTagBar,            0,              Button3,        toggleview,     {0} },
 	{ ClkTagBar,            MODKEY,         Button1,        tag,            {0} },
-	{ ClkTagBar,            MODKEY,         Button3,        toggletag,      {0} }, */
+	{ ClkTagBar,            MODKEY,         Button3,        toggletag,      {0} }, 
 };
 

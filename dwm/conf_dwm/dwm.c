@@ -2311,10 +2311,24 @@ updatesizehints(Client *c)
 
 void
 updatestatus(void)
+/*IPCинтерфейс для приема внешних команд*/
 {
-	if (!gettextprop(root, XA_WM_NAME, stext, sizeof(stext)))
-		strcpy(stext, "dwm-"VERSION);
-	drawbar(selmon);
+    if (!gettextprop(root, XA_WM_NAME, stext, sizeof(stext)))
+        strcpy(stext, "dwm-"VERSION);
+    if (strncmp(stext, "cmd:focus:", 10) == 0) {
+        Window win = (Window)strtoul(stext + 10, NULL, 0);
+        Client *c = wintoclient(win);
+        if (c) {
+            if (!(c->tags & selmon->tagset[selmon->seltags])) {
+                Arg a = {.ui = c->tags};
+                view(&a);
+            }
+            focus(c);
+            restack(selmon);
+        }
+        return;
+    }
+    drawbar(selmon);
 }
 
 void
